@@ -336,19 +336,30 @@ function findFreePairs() {
 
 // ── Tile sizing ──
 function calcTileSize() {
-  // Measure actual available space by subtracting toolbar + status from viewport
   const toolbar = document.querySelector('.toolbar');
   const status  = document.querySelector('.status-bar');
-  const chrome  = (toolbar ? toolbar.offsetHeight : 0) + (status ? status.offsetHeight : 0);
-  const availW  = window.innerWidth - 16;
-  const availH  = window.innerHeight - chrome - 16;
-  const depth   = (MAX_Z + 2) * EDGE_W;
+  const isSidebar = document.body.classList.contains('is-fullscreen');
+
+  let availW, availH;
+  if (isSidebar) {
+    // Sidebar mode: toolbar takes width on the left, not height
+    const sidebarW = toolbar ? toolbar.offsetWidth : 0;
+    availW = window.innerWidth - sidebarW - 8;
+    availH = window.innerHeight - 8;
+  } else {
+    // Normal mode: toolbar + status take height from top/bottom
+    const chrome = (toolbar ? toolbar.offsetHeight : 0) + (status ? status.offsetHeight : 0);
+    availW = window.innerWidth - 16;
+    availH = window.innerHeight - chrome - 16;
+  }
+
+  const depth = (MAX_Z + 2) * EDGE_W;
 
   // Height-first: fill available height with all 8 rows
   let h = Math.floor((availH - depth) / TILE_ROWS);
   let w = Math.round(h / 1.25);
 
-  // Shrink if too wide for 14 columns
+  // Shrink if too wide for columns
   if (TILE_COLS * w + depth > availW) {
     w = Math.floor((availW - depth) / TILE_COLS);
     h = Math.round(w * 1.25);
