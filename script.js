@@ -621,6 +621,41 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') hideGallery();
 });
 
+// ── Fullscreen toggle ──
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) {
+      req.call(el).then(() => {
+        // Try to lock to landscape on mobile
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  } else {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (exit) exit.call(document);
+  }
+}
+
+document.getElementById('btnFullscreen').addEventListener('click', toggleFullscreen);
+
+// Update fullscreen button text on change
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('btnFullscreen');
+  if (document.fullscreenElement) {
+    btn.innerHTML = '&#x2716; Exit FS';
+    document.body.classList.add('is-fullscreen');
+  } else {
+    btn.innerHTML = '&#x26F6; Fullscreen';
+    document.body.classList.remove('is-fullscreen');
+  }
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(render, 200);
+});
+
 // ── Handle responsive resizing ──
 let resizeTimer;
 window.addEventListener('resize', () => {

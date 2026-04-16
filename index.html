@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Logo – Mahjong Solitaire</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,6 +20,7 @@
         <button id="btnUndo" title="Undo">&#8630; Undo</button>
         <button id="btnShuffle" title="Shuffle">&#128256; Shuffle</button>
         <button id="btnLogos" title="Show all logos">&#9783; Logos</button>
+        <button id="btnFullscreen" title="Fullscreen">&#x26F6; Fullscreen</button>
       </div>
       <div class="toolbar-info">
         <span class="pairs-display">Pairs: <strong id="pairsCount">0</strong> / <strong>72</strong></span>
