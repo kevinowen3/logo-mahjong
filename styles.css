@@ -388,18 +388,12 @@ body.is-fullscreen .toolbar-info span {
 body.is-fullscreen .board-wrapper {
   flex: 1;
   min-width: 0;
+  align-items: flex-start;
+  padding-top: 1px;
 }
 
 body.is-fullscreen .status-bar {
-  position: fixed;
-  bottom: 0;
-  left: 60px;
-  right: 0;
-  font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  background: rgba(244,244,244,0.9);
-  border-top: 1px solid #ccc;
-  z-index: 100;
+  display: none;
 }
 
 /* Hide status bar text labels on narrow sidebar */

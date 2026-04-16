@@ -342,10 +342,10 @@ function calcTileSize() {
 
   let availW, availH;
   if (isSidebar) {
-    // Sidebar mode: toolbar takes width on the left, not height
+    // Sidebar mode: toolbar takes width on the left, full height available
     const sidebarW = toolbar ? toolbar.offsetWidth : 0;
-    availW = window.innerWidth - sidebarW - 8;
-    availH = window.innerHeight - 8;
+    availW = window.innerWidth - sidebarW - 2;
+    availH = window.innerHeight - 2;
   } else {
     // Normal mode: toolbar + status take height from top/bottom
     const chrome = (toolbar ? toolbar.offsetHeight : 0) + (status ? status.offsetHeight : 0);
