@@ -1,0 +1,317 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #e0e0e0;
+  color: #222;
+  overflow: hidden;
+}
+
+/* ─── App shell ─── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ─── Toolbar ─── */
+.toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 1rem;
+  background: #f4f4f4;
+  border-bottom: 1px solid #ccc;
+  flex-wrap: wrap;
+}
+
+.game-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #222;
+  margin-right: 0.5rem;
+}
+
+.toolbar-buttons {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.toolbar button {
+  appearance: none;
+  border: 1px solid #bbb;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.toolbar button:hover {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+.toolbar button:active {
+  background: #ddd;
+}
+
+.toolbar-info {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.toolbar-info strong {
+  color: #222;
+}
+
+/* ─── Board ─── */
+.board-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+  min-height: 0;
+}
+
+.board {
+  position: relative;
+}
+
+/* ─── Tiles (ceramic 3D block look) ─── */
+.tile {
+  position: absolute;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, opacity 0.25s ease;
+
+  /* White ceramic face with dark frame border */
+  background: linear-gradient(168deg, #ffffff 0%, #eef0f4 100%);
+  border: 1.5px solid #666;
+  border-radius: 7px;
+
+  /* 3D depth: solid edge to the LEFT and BOTTOM + soft shadow */
+  box-shadow:
+    -3px 3px 0 0 #a0a0a0,
+    -3px 4px 5px rgba(0, 0, 0, 0.22);
+}
+
+/* Glossy ceramic highlight on the tile face */
+.tile::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 8%;
+  right: 8%;
+  height: 38%;
+  border-radius: 4px 4px 50% 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.tile .logo-icon {
+  width: 76%;
+  height: 76%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+.tile .logo-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Tile states ── */
+.tile.blocked {
+  cursor: default;
+}
+
+.tile.free:hover {
+  transform: translate(1px, -1px);
+  box-shadow:
+    -4px 4px 0 0 #a0a0a0,
+    -4px 5px 7px rgba(0, 0, 0, 0.28);
+}
+
+.tile.selected {
+  border-color: #2266cc;
+  background: linear-gradient(168deg, #eef4ff 0%, #d6e4ff 100%);
+  box-shadow:
+    -3px 3px 0 0 #6688bb,
+    -3px 4px 5px rgba(0, 0, 0, 0.22),
+    0 0 0 2px #3388ff;
+}
+
+.tile.hint-glow {
+  animation: hintPulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes hintPulse {
+  0% {
+    box-shadow:
+      -3px 3px 0 0 #a0a0a0,
+      -3px 4px 5px rgba(0,0,0,0.22),
+      0 0 6px 2px rgba(0,150,255,0.4);
+  }
+  100% {
+    box-shadow:
+      -3px 3px 0 0 #a0a0a0,
+      -3px 4px 5px rgba(0,0,0,0.22),
+      0 0 14px 4px rgba(0,150,255,0.7);
+  }
+}
+
+.tile.matched {
+  opacity: 0;
+  transform: scale(0.7);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+/* ─── Status bar ─── */
+.status-bar {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 0.3rem 1rem;
+  font-size: 0.82rem;
+  background: #f4f4f4;
+  color: #555;
+  border-top: 1px solid #ccc;
+}
+
+/* ─── Gallery overlay ─── */
+.gallery-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+.gallery-overlay.hidden { display: none; }
+
+.gallery-panel {
+  background: #fff;
+  color: #222;
+  border-radius: 12px;
+  width: min(100%, 960px);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.gallery-header h2 { font-size: 1.2rem; }
+
+.close-btn {
+  appearance: none;
+  border: 1px solid #ccc;
+  background: #f0f0f0;
+  color: #333;
+  font-size: 0.9rem;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.close-btn:hover { background: #ddd; }
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.6rem;
+}
+
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.3rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  text-align: center;
+}
+
+.gallery-card svg { /* sized dynamically in showGallery() to match tile logos */ }
+
+.gallery-card span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #555;
+}
+
+/* ─── Win modal ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.modal-overlay.hidden { display: none; }
+
+.modal-content {
+  background: #fff;
+  color: #222;
+  border-radius: 16px;
+  padding: 2rem 3rem;
+  text-align: center;
+}
+.modal-content h2 { margin-bottom: 0.5rem; color: #1a5c30; }
+.modal-content p  { margin-bottom: 1.2rem; color: #555; }
+.modal-content button {
+  appearance: none;
+  border: none;
+  background: #2c6e49;
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.65rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.modal-content button:hover { background: #245a3a; }
+
+/* ─── Responsive ─── */
+@media (max-width: 600px) {
+  .toolbar { padding: 0.3rem 0.5rem; gap: 0.3rem; }
+  .game-title { font-size: 1rem; }
+  .toolbar-buttons { gap: 0.2rem; }
+  .toolbar button { font-size: 0.7rem; padding: 0.25rem 0.4rem; }
+  .toolbar-info { width: 100%; justify-content: center; gap: 0.8rem; font-size: 0.75rem; }
+  .status-bar { font-size: 0.75rem; }
+}

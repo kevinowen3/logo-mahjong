@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, initial-scale=1.0">
+  <title>Logo – Mahjong Solitaire</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <nav class="toolbar">
+      <span class="game-title">Logo</span>
+      <div class="toolbar-buttons">
+        <button id="btnNew" title="New Game">&#9654; New Game</button>
+        <button id="btnHint" title="Hint">&#128161; Hint</button>
+        <button id="btnUndo" title="Undo">&#8630; Undo</button>
+        <button id="btnShuffle" title="Shuffle">&#128256; Shuffle</button>
+        <button id="btnLogos" title="Show all logos">&#9783; Logos</button>
+      </div>
+      <div class="toolbar-info">
+        <span class="pairs-display">Pairs: <strong id="pairsCount">0</strong> / <strong>72</strong></span>
+        <span class="tiles-display">Tiles: <strong id="tilesLeft">144</strong></span>
+      </div>
+    </nav>
+
+    <div class="board-wrapper">
+      <div id="board" class="board"></div>
+    </div>
+
+    <div id="status" class="status-bar">Click or tap a free tile to begin matching.</div>
+  </div>
+
+  <div id="gallery" class="gallery-overlay hidden">
+    <div class="gallery-panel">
+      <div class="gallery-header">
+        <h2>All Company Logos</h2>
+        <button id="btnCloseGallery" class="close-btn">&times; Close</button>
+      </div>
+      <div id="galleryGrid" class="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div id="winModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2>Congratulations!</h2>
+      <p>You cleared all the tiles!</p>
+      <button id="btnNewAfterWin">Play Again</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
