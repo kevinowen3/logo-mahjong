@@ -355,24 +355,28 @@ function calcTileSize() {
 
   const depth = (MAX_Z + 2) * EDGE_W;
 
-  // Calculate max tile size that fits both dimensions
+  // In fullscreen, relax the tile h/w ratio to fit the viewport, clamped
+  // so logos don't distort. Otherwise keep the standard 1.25.
+  let ratio = 1.25;
+  if (isSidebar) {
+    const naturalRatio = ((availH - depth) / TILE_ROWS) / ((availW - depth) / TILE_COLS);
+    ratio = Math.max(1.05, Math.min(1.25, naturalRatio));
+  }
+
   const maxW = Math.floor((availW - depth) / TILE_COLS);
   const maxH = Math.floor((availH - depth) / TILE_ROWS);
 
-  // Use the smaller constraint, maintaining 1:1.25 aspect ratio
   let w, h;
-  if (maxW * 1.25 <= maxH) {
-    // Width-constrained: width fills first
+  if (maxW * ratio <= maxH) {
     w = maxW;
-    h = Math.round(w * 1.25);
+    h = Math.round(w * ratio);
   } else {
-    // Height-constrained: height fills first
     h = maxH;
-    w = Math.round(h / 1.25);
+    w = Math.round(h / ratio);
   }
 
   w = Math.max(22, w);
-  h = Math.round(w * 1.25);
+  h = Math.round(w * ratio);
   return { w, h };
 }
 
