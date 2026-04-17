@@ -355,14 +355,20 @@ function calcTileSize() {
 
   const depth = (MAX_Z + 2) * EDGE_W;
 
-  // Height-first: fill available height with all 8 rows
-  let h = Math.floor((availH - depth) / TILE_ROWS);
-  let w = Math.round(h / 1.25);
+  // Calculate max tile size that fits both dimensions
+  const maxW = Math.floor((availW - depth) / TILE_COLS);
+  const maxH = Math.floor((availH - depth) / TILE_ROWS);
 
-  // Shrink if too wide for columns
-  if (TILE_COLS * w + depth > availW) {
-    w = Math.floor((availW - depth) / TILE_COLS);
+  // Use the smaller constraint, maintaining 1:1.25 aspect ratio
+  let w, h;
+  if (maxW * 1.25 <= maxH) {
+    // Width-constrained: width fills first
+    w = maxW;
     h = Math.round(w * 1.25);
+  } else {
+    // Height-constrained: height fills first
+    h = maxH;
+    w = Math.round(h / 1.25);
   }
 
   w = Math.max(22, w);

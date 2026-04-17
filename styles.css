@@ -388,8 +388,11 @@ body.is-fullscreen .toolbar-info span {
 body.is-fullscreen .board-wrapper {
   flex: 1;
   min-width: 0;
-  align-items: flex-start;
-  padding-top: 1px;
+  min-height: 0;
+  align-items: start;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
 }
 
 body.is-fullscreen .status-bar {
