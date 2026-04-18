@@ -127,8 +127,8 @@ html, body {
 }
 
 .tile .logo-icon {
-  width: 76%;
-  height: 76%;
+  width: 92%;
+  height: 92%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -291,7 +291,9 @@ html, body {
   text-align: center;
 }
 .modal-content h2 { margin-bottom: 0.5rem; color: #1a5c30; }
+.modal-content h2.game-over-heading { color: #a83232; }
 .modal-content p  { margin-bottom: 1.2rem; color: #555; }
+.modal-content .modal-buttons { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
 .modal-content button {
   appearance: none;
   border: none;
