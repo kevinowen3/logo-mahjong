@@ -51,7 +51,7 @@ const LOGOS = [
 
   {
     id: 'bambulab', name: 'Bambu Lab',
-    svg: `<svg viewBox="0 0 100 100"><defs><linearGradient id="bambu-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2ea84a"/><stop offset="100%" stop-color="#1d8a38"/></linearGradient><linearGradient id="bambu-sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".4"/><stop offset="50%" stop-color="#fff" stop-opacity=".08"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="bambu-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><rect x="8" y="8" width="84" height="84" rx="18" fill="url(#bambu-bg)"/><rect x="8" y="8" width="84" height="84" rx="18" fill="url(#bambu-sh)"/><g filter="url(#bambu-ds)"><rect x="30" y="26" width="16" height="48" rx="1" fill="#fff"/><rect x="54" y="26" width="16" height="48" rx="1" fill="#fff"/><polygon points="30,56 46,46 46,50 30,60" fill="#1d8a38"/><polygon points="30,60 54,46 54,50 30,64" fill="#1d8a38"/></g></svg>`
+    svg: `<svg viewBox="0 0 100 100"><defs><filter id="bambu-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#bambu-ds)" fill="#009e48"><polygon points="15,7 47,7 47,48 15,55"/><polygon points="53,7 85,7 85,40 53,47"/><polygon points="15,61 47,54 47,93 15,93"/><polygon points="53,53 85,46 85,93 53,93"/></g></svg>`
   },
 
   {
