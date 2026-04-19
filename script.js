@@ -106,7 +106,7 @@ const LOGOS = [
 
   {
     id: 'microsoft', name: 'Microsoft',
-    svg: `<svg viewBox="0 0 100 100"><defs><linearGradient id="microsoft-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2b2b2b"/><stop offset="100%" stop-color="#111111"/></linearGradient><linearGradient id="microsoft-sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".4"/><stop offset="50%" stop-color="#fff" stop-opacity=".08"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="microsoft-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><rect x="8" y="8" width="84" height="84" rx="18" fill="url(#microsoft-bg)"/><rect x="8" y="8" width="84" height="84" rx="18" fill="url(#microsoft-sh)"/><g filter="url(#microsoft-ds)" transform="translate(26,26) scale(2)"><path d="M0 0v11.408h11.408V0z" fill="#F25022"/><path d="M12.594 0v11.408H24V0z" fill="#7FBA00"/><path d="M0 12.594V24h11.408V12.594z" fill="#00A4EF"/><path d="M12.594 12.594V24H24V12.594z" fill="#FFB900"/></g></svg>`
+    svg: `<svg viewBox="0 0 100 100"><defs><filter id="microsoft-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#microsoft-ds)" transform="translate(8, 8) scale(1.167)"><rect width="34.2" height="34.2" fill="#F25022"/><rect x="37.8" width="34.2" height="34.2" fill="#7FBA00"/><rect y="37.8" width="34.2" height="34.2" fill="#00A4EF"/><rect x="37.8" y="37.8" width="34.2" height="34.2" fill="#FFB900"/></g></svg>`
   },
 
   {
