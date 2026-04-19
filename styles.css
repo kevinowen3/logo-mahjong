@@ -379,7 +379,9 @@ body.is-fullscreen .toolbar-info {
   gap: 0.2rem;
   margin-left: 0;
   margin-top: auto;
-  font-size: 0.65rem;
+  padding: 0 0.2rem 0.25rem;
+  font-size: 0.55rem;
+  line-height: 1.2;
   text-align: center;
 }
 
