@@ -51,7 +51,7 @@ const LOGOS = [
 
   {
     id: 'bambulab', name: 'Bambu Lab',
-    svg: `<svg viewBox="0 0 100 100"><defs><filter id="bambu-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#bambu-ds)" fill="#009e48"><polygon points="15,7 47,7 47,48 15,55"/><polygon points="53,7 85,7 85,40 53,47"/><polygon points="15,61 47,54 47,93 15,93"/><polygon points="53,53 85,46 85,93 53,93"/></g></svg>`
+    svg: `<svg viewBox="0 0 100 100"><defs><filter id="bambu-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#bambu-ds)" fill="#00AE42" transform="translate(13.75, 2.73) scale(0.537)"><polygon points="71.11,153.19 117.59,153.19 117.59,89.8 71.11,71.5"/><polygon points="71.11,22.84 71.11,63.69 117.59,82 117.59,22.84"/><polygon points="17.42,22.84 17.42,104.53 63.89,86.23 63.89,22.84"/><polygon points="17.42,153.19 63.89,153.19 63.89,94.03 17.42,112.34"/></g></svg>`
   },
 
   {
