@@ -679,9 +679,18 @@ document.addEventListener('fullscreenchange', () => {
 
 // ── Handle responsive resizing ──
 let resizeTimer;
-window.addEventListener('resize', () => {
+function scheduleRender(delay = 150) {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(render, 150);
+  resizeTimer = setTimeout(render, delay);
+}
+window.addEventListener('resize', () => scheduleRender(150));
+window.addEventListener('orientationchange', () => {
+  scheduleRender(200);
+  setTimeout(render, 600);
+});
+screen.orientation?.addEventListener?.('change', () => {
+  scheduleRender(200);
+  setTimeout(render, 600);
 });
 
 // ── Initialize (defer so flex layout is fully computed) ──

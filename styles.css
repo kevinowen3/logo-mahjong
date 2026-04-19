@@ -393,7 +393,7 @@ body.is-fullscreen .board-wrapper {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  align-items: start;
+  align-items: center;
   justify-content: center;
   padding: 0;
   overflow: hidden;
