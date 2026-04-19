@@ -344,11 +344,11 @@ function calcTileSize() {
   const isSidebar = document.body.classList.contains('is-fullscreen');
 
   let availW, availH;
+  const wrapper = boardEl.parentElement;
   if (isSidebar) {
-    // Sidebar mode: toolbar takes width on the left, full height available
-    const sidebarW = toolbar ? toolbar.offsetWidth : 0;
-    availW = window.innerWidth - sidebarW - 2;
-    availH = window.innerHeight - 2;
+    // Sidebar mode: measure the actual wrapper so we respect dvh and safe-area.
+    availW = (wrapper ? wrapper.clientWidth : window.innerWidth) - 2;
+    availH = (wrapper ? wrapper.clientHeight : window.innerHeight) - 2;
   } else {
     // Normal mode: toolbar + status take height from top/bottom
     const chrome = (toolbar ? toolbar.offsetHeight : 0) + (status ? status.offsetHeight : 0);
@@ -358,12 +358,13 @@ function calcTileSize() {
 
   const depth = (MAX_Z + 2) * EDGE_W;
 
-  // In fullscreen, relax the tile h/w ratio to fit the viewport, clamped
-  // so logos don't distort. Otherwise keep the standard 1.25.
+  // In fullscreen, relax the tile h/w ratio so the board fills the viewport.
+  // Allow mildly landscape tiles (min 0.85) on very wide screens so we aren't
+  // forced to leave vertical space unused just to keep tiles portrait.
   let ratio = 1.25;
   if (isSidebar) {
     const naturalRatio = ((availH - depth) / TILE_ROWS) / ((availW - depth) / TILE_COLS);
-    ratio = Math.max(1.05, Math.min(1.25, naturalRatio));
+    ratio = Math.max(0.85, Math.min(1.25, naturalRatio));
   }
 
   const maxW = Math.floor((availW - depth) / TILE_COLS);
