@@ -4,7 +4,7 @@ A browser-based Mahjong Solitaire where tiles carry tech-company logos instead o
 
 ## File layout
 
-- [index.html](index.html) – app shell: toolbar, board wrapper, win/game-over modals, gallery overlay
+- [index.html](index.html) – app shell: toolbar, board wrapper, win/game-over/about modals, gallery overlay
 - [script.js](script.js) – everything: `LOGOS` array, layout, tile sizing, free-tile logic, render, event wiring
 - [styles.css](styles.css) – ceramic tile face, fullscreen sidebar layout, modals
 - [manifest.json](manifest.json) – PWA manifest (installable on mobile)
@@ -35,7 +35,7 @@ Each entry is `{ id, name, svg }` where `svg` is a template literal holding a co
 Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orientation lock. In that mode:
 
 - Toolbar becomes a 52–60 px left sidebar ([styles.css](styles.css) `body.is-fullscreen .toolbar`).
-- `calcTileSize()` measures `board-wrapper.clientHeight/clientWidth` directly rather than `window.innerHeight` — this respects `dvh` and safe-area insets. (The wrapper sizes correctly via flex; `window.innerHeight` diverged from true layout space on mobile.)
+- `calcTileSize()` measures `board-wrapper.clientHeight/clientWidth` directly rather than `globalThis.innerHeight` — this respects `dvh` and safe-area insets. (The wrapper sizes correctly via flex; viewport-height globals diverged from true layout space on mobile.) All global references use `globalThis.*`, not `window.*`, to satisfy the project's lint rule.
 - Tile aspect ratio in fullscreen is clamped `[0.85, 1.25]` — the 0.85 lower bound lets ultra-landscape phones grow tiles slightly wider-than-tall to fill horizontal space without leaving a narrow board.
 - Re-render is scheduled after `resize`, `orientationchange`, and `screen.orientation` change events, with a double-fire at 200 ms and 600 ms to catch the real viewport *after* the landscape lock completes.
 - The board is centered both axes inside the fullscreen board-wrapper.
@@ -46,6 +46,22 @@ Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orient
 - `computeFree()` returns a `{uid: bool}` map of currently free tiles (not covered above, at least one of left/right free).
 - `findFreePairs()` groups free tiles by `logoId` and returns pairs for hint / game-over detection.
 - Win modal fires when all tiles are removed; game-over modal fires when no free pairs remain (offers Undo / Shuffle / New Game).
+- `render()` also counts distinct matchable logos (free tiles of a given `logoId` with count ≥ 2) and writes it to `#freePairsCount`, reusing the already-computed `freeMap` instead of calling `findFreePairs()` a second time.
+
+## UI chrome & event wiring
+
+- **Game title** ([index.html](index.html) `#gameTitle`): `<span>` containing four inner spans (`.gt-l .gt-o1 .gt-g .gt-o2`) coloured with the Microsoft four-square palette (`#F25022`, `#00A4EF`, `#7FBA00`, `#FFB900`). It's clickable:
+  - plain click → About modal
+  - **Shift+Click → Win modal** (test harness)
+  - **Ctrl+Click → Game Over modal** (test harness)
+- **About modal** (`#aboutModal`): shown by `showAbout()`, which defers a one-shot capture-phase click listener on `document` via `setTimeout(..., 0)` so the click that opened it doesn't immediately close it. Any subsequent click anywhere on the page dismisses it.
+- **Status bar** is a wrapper with two spans: `#status` (message, written by `setStatus()`) and `.free-pairs-display` containing `#freePairsCount`. The count span is absolutely positioned on the right so the message stays centered. Fullscreen mode hides the whole status bar.
+- **Selection / hint styling**: both use `.tile.selected` (teal ring via `box-shadow: 0 0 0 3px #00bcd4`, teal face, `z-index: 9000 !important` so the ring paints above neighbours). The hint system adds `.selected` to both tiles in a hint pair — it does not use a separate class. Any earlier `.tile.hint-glow` rule is gone; don't reintroduce it unless you also update the JS that applies the class.
+- **Deselection triggers**: `deselectTile()` clears `selectedId`, `hintPair`, and `hintIndex` and re-renders. It's called by
+  1. clicking the empty board surface (`e.target === boardEl`),
+  2. clicking the margin around the board (`e.target.classList.contains('board-wrapper')`),
+  3. pressing **Escape** (which also hides gallery, win, and game-over modals).
+  Tile-on-tile clicks go through `onTileClick()` and don't touch `deselectTile()`.
 
 ## Deploying
 
