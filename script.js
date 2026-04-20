@@ -51,7 +51,7 @@ const LOGOS = [
 
   {
     id: 'bambulab', name: 'Bambu Lab',
-    svg: `<svg viewBox="0 0 100 100"><defs><filter id="bambu-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#bambu-ds)" fill="#00AE42" transform="translate(13.75, 2.73) scale(0.537)"><polygon points="71.11,153.19 117.59,153.19 117.59,89.8 71.11,71.5"/><polygon points="71.11,22.84 71.11,63.69 117.59,82 117.59,22.84"/><polygon points="17.42,22.84 17.42,104.53 63.89,86.23 63.89,22.84"/><polygon points="17.42,153.19 63.89,153.19 63.89,94.03 17.42,112.34"/></g></svg>`
+    svg: `<svg viewBox="0 0 100 100"><defs><filter id="bambu-ds"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#bambu-ds)" fill="#00AE42" transform="translate(10.1, -2.02) scale(0.591)"><polygon points="71.11,153.19 117.59,153.19 117.59,89.8 71.11,71.5"/><polygon points="71.11,22.84 71.11,63.69 117.59,82 117.59,22.84"/><polygon points="17.42,22.84 17.42,104.53 63.89,86.23 63.89,22.84"/><polygon points="17.42,153.19 63.89,153.19 63.89,94.03 17.42,112.34"/></g></svg>`
   },
 
   {
@@ -76,7 +76,7 @@ const LOGOS = [
 
   {
     id: 'hp', name: 'HP',
-    svg: `<svg viewBox="0 0 100 100"><g fill="#024ad8" transform="translate(0.99, 0.11) scale(0.0986)"><path d="m498 1012h-15l103-284h143q19 0 37-12.5t24-30.5l111-309q15-39-4.5-65.5t-59.5-26.5h-198l-164 457-94 258q-84-20-156-66-71-46-123.5-111t-81.5-146q-30-80-30-170 0-87 28-166 28-78 78-142t118-110 148-68l-96 266-163 442h107l137-376h81l-137 376h107l128-350q14-38-5-65t-59-27h-90l103-286h23q105 0 197 40t160.5 108.5 108.5 160.5 40 197-40 197-108.5 160.5-160.5 108.5-197 40zm305-662h-81l-113 310h81z"/></g></svg>`
+    svg: `<svg viewBox="0 0 100 100"><g fill="#024ad8" transform="translate(5.89, 5.10) scale(0.0887)"><path d="m498 1012h-15l103-284h143q19 0 37-12.5t24-30.5l111-309q15-39-4.5-65.5t-59.5-26.5h-198l-164 457-94 258q-84-20-156-66-71-46-123.5-111t-81.5-146q-30-80-30-170 0-87 28-166 28-78 78-142t118-110 148-68l-96 266-163 442h107l137-376h81l-137 376h107l128-350q14-38-5-65t-59-27h-90l103-286h23q105 0 197 40t160.5 108.5 108.5 160.5 40 197-40 197-108.5 160.5-160.5 108.5-197 40zm305-662h-81l-113 310h81z"/></g></svg>`
   },
 
   {
@@ -111,7 +111,7 @@ const LOGOS = [
 
   {
     id: 'motorola', name: 'Motorola',
-    svg: `<svg viewBox="0 0 106.3 106.3"><defs><filter id="motorola-ds"><feDropShadow dx="0" dy="1.06" stdDeviation="1.28" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#motorola-ds)"><path d="M 106.29837,53.150625 C 106.29837,82.504125 82.502875,106.3 53.149875,106.3 23.795875,106.3 0,82.504125 0,53.150625 c 0,-29.354 23.795875,-53.1495 53.149875,-53.1495 29.353,0 53.148495,23.7955 53.148495,53.1495" fill="#4279bd"/><path d="m 87.2065,78.126125 -19.15425,-63.17675 -14.7705,49.32475 -0.13425,0.11575 -0.123125,-0.11575 -14.791,-49.32475 -19.150875,63.17675 3.5855,0 c 0,0 2.42675,-10.98925 6.36175,-17.55175 2.129375,-3.561 5.441875,-6.48575 9.849625,-6.40475 3.078125,0.07225 5.76325,1.785625 9.133375,6.495625 2.014625,2.829125 5.1215,10.0225 5.1215,10.0225 0,0 3.126,-7.193375 5.140125,-10.0225 3.381375,-4.71 6.044,-6.423375 9.155375,-6.495625 4.3945,-0.081 7.705,2.84375 9.812,6.40475 3.9355,6.5625 6.3745,17.55175 6.3745,17.55175 l 3.59025,0 z" fill="#ffffff"/></g></svg>`
+    svg: `<svg viewBox="0 0 106.3 106.3"><defs><filter id="motorola-ds"><feDropShadow dx="0" dy="1.06" stdDeviation="1.28" flood-color="#000" flood-opacity=".3"/></filter></defs><g filter="url(#motorola-ds)" transform="translate(5.315, 5.315) scale(0.9)"><path d="M 106.29837,53.150625 C 106.29837,82.504125 82.502875,106.3 53.149875,106.3 23.795875,106.3 0,82.504125 0,53.150625 c 0,-29.354 23.795875,-53.1495 53.149875,-53.1495 29.353,0 53.148495,23.7955 53.148495,53.1495" fill="#4279bd"/><path d="m 87.2065,78.126125 -19.15425,-63.17675 -14.7705,49.32475 -0.13425,0.11575 -0.123125,-0.11575 -14.791,-49.32475 -19.150875,63.17675 3.5855,0 c 0,0 2.42675,-10.98925 6.36175,-17.55175 2.129375,-3.561 5.441875,-6.48575 9.849625,-6.40475 3.078125,0.07225 5.76325,1.785625 9.133375,6.495625 2.014625,2.829125 5.1215,10.0225 5.1215,10.0225 0,0 3.126,-7.193375 5.140125,-10.0225 3.381375,-4.71 6.044,-6.423375 9.155375,-6.495625 4.3945,-0.081 7.705,2.84375 9.812,6.40475 3.9355,6.5625 6.3745,17.55175 6.3745,17.55175 l 3.59025,0 z" fill="#ffffff"/></g></svg>`
   },
 
   {
@@ -347,13 +347,13 @@ function calcTileSize() {
   const wrapper = boardEl.parentElement;
   if (isSidebar) {
     // Sidebar mode: measure the actual wrapper so we respect dvh and safe-area.
-    availW = (wrapper ? wrapper.clientWidth : window.innerWidth) - 2;
-    availH = (wrapper ? wrapper.clientHeight : window.innerHeight) - 2;
+    availW = (wrapper ? wrapper.clientWidth : globalThis.innerWidth) - 2;
+    availH = (wrapper ? wrapper.clientHeight : globalThis.innerHeight) - 2;
   } else {
     // Normal mode: toolbar + status take height from top/bottom
     const chrome = (toolbar ? toolbar.offsetHeight : 0) + (status ? status.offsetHeight : 0);
-    availW = window.innerWidth - 16;
-    availH = window.innerHeight - chrome - 16;
+    availW = globalThis.innerWidth - 16;
+    availH = globalThis.innerHeight - chrome - 16;
   }
 
   const depth = (MAX_Z + 2) * EDGE_W;
@@ -389,6 +389,15 @@ function render() {
   boardEl.innerHTML = '';
   const freeMap = computeFree();
   const { w: tileW, h: tileH } = calcTileSize();
+
+  const freeCounts = {};
+  tiles.forEach(t => {
+    if (!t.removed && freeMap[t.uid]) {
+      freeCounts[t.logoId] = (freeCounts[t.logoId] || 0) + 1;
+    }
+  });
+  const freePairCount = Object.values(freeCounts).filter(c => c >= 2).length;
+  document.getElementById('freePairsCount').textContent = freePairCount;
 
   // Board pixel dimensions
   const depth = (MAX_Z + 2) * EDGE_W;
@@ -634,12 +643,52 @@ document.getElementById('btnUndoAfterGameOver').addEventListener('click', doUndo
 document.getElementById('btnShuffleAfterGameOver').addEventListener('click', doShuffle);
 document.getElementById('btnNewGameAfterGameOver').addEventListener('click', newGame);
 
+const aboutModal = document.getElementById('aboutModal');
+function hideAbout() { aboutModal.classList.add('hidden'); }
+function showAbout() {
+  aboutModal.classList.remove('hidden');
+  setTimeout(() => {
+    document.addEventListener('click', hideAbout, { once: true, capture: true });
+  }, 0);
+}
+document.getElementById('gameTitle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (e.shiftKey) {
+    winModal.classList.remove('hidden');
+  } else if (e.ctrlKey) {
+    gameOverModal.classList.remove('hidden');
+  } else {
+    showAbout();
+  }
+});
+
 galleryEl.addEventListener('click', (e) => {
   if (e.target === galleryEl) hideGallery();
 });
 
+function deselectTile() {
+  if (selectedId === null && !hintPair) return;
+  selectedId = null;
+  hintPair = null;
+  hintIndex = 0;
+  setStatus('Tile deselected.');
+  render();
+}
+
+boardEl.addEventListener('click', (e) => {
+  if (e.target === boardEl) deselectTile();
+});
+document.querySelector('.board-wrapper').addEventListener('click', (e) => {
+  if (e.target.classList.contains('board-wrapper')) deselectTile();
+});
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideGallery();
+  if (e.key === 'Escape') {
+    hideGallery();
+    winModal.classList.add('hidden');
+    gameOverModal.classList.add('hidden');
+    deselectTile();
+  }
 });
 
 // ── Fullscreen toggle ──
@@ -683,8 +732,8 @@ function scheduleRender(delay = 150) {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(render, delay);
 }
-window.addEventListener('resize', () => scheduleRender(150));
-window.addEventListener('orientationchange', () => {
+globalThis.addEventListener('resize', () => scheduleRender(150));
+globalThis.addEventListener('orientationchange', () => {
   scheduleRender(200);
   setTimeout(render, 600);
 });

@@ -13,7 +13,7 @@
 <body>
   <div id="app">
     <nav class="toolbar">
-      <span class="game-title">Logo</span>
+      <span id="gameTitle" class="game-title" title="About Logo"><span class="gt-l">L</span><span class="gt-o1">o</span><span class="gt-g">g</span><span class="gt-o2">o</span></span>
       <div class="toolbar-buttons">
         <button id="btnNew" title="New Game">&#9654; New Game</button>
         <button id="btnHint" title="Hint">&#128161; Hint</button>
@@ -32,7 +32,10 @@
       <div id="board" class="board"></div>
     </div>
 
-    <div id="status" class="status-bar">Click or tap a free tile to begin matching.</div>
+    <div class="status-bar">
+      <span id="status">Click or tap a free tile to begin matching.</span>
+      <span class="free-pairs-display">Available pairs: <strong id="freePairsCount">0</strong></span>
+    </div>
   </div>
 
   <div id="gallery" class="gallery-overlay hidden">
@@ -42,6 +45,15 @@
         <button id="btnCloseGallery" class="close-btn">&times; Close</button>
       </div>
       <div id="galleryGrid" class="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div id="aboutModal" class="modal-overlay hidden">
+    <div class="modal-content about-content">
+      <h2>About Logo</h2>
+      <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
+      <p>Written by Kevin Owen</p>
+      <p class="about-date">Date: 20 Apr 2026</p>
     </div>
   </div>
 
