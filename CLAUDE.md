@@ -34,7 +34,7 @@ Each entry is `{ id, name, svg }` where `svg` is a template literal holding a co
 
 Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orientation lock. In that mode:
 
-- Toolbar becomes a 52–60 px left sidebar ([styles.css](styles.css) `body.is-fullscreen .toolbar`).
+- Toolbar becomes a 76–84 px left sidebar ([styles.css](styles.css) `body.is-fullscreen .toolbar`). `flex: 0 0 auto` pins the size so nowrap text in `.toolbar-info` (`Pairs: 0 / 72`) can't expand the toolbar past its max-width.
 - `calcTileSize()` measures `board-wrapper.clientHeight/clientWidth` directly rather than `globalThis.innerHeight` — this respects `dvh` and safe-area insets. (The wrapper sizes correctly via flex; viewport-height globals diverged from true layout space on mobile.) All global references use `globalThis.*`, not `window.*`, to satisfy the project's lint rule.
 - Tile aspect ratio in fullscreen is clamped `[0.85, 1.25]` — the 0.85 lower bound lets ultra-landscape phones grow tiles slightly wider-than-tall to fill horizontal space without leaving a narrow board.
 - Re-render is scheduled after `resize`, `orientationchange`, and `screen.orientation` change events, with a double-fire at 200 ms and 600 ms to catch the real viewport *after* the landscape lock completes.
