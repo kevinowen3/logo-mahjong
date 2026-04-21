@@ -386,6 +386,7 @@ body.is-fullscreen .toolbar-info {
   font-size: 0.65rem;
   line-height: 1.25;
   text-align: center;
+  min-width: 0;
 }
 
 body.is-fullscreen .toolbar-info span {
@@ -406,10 +407,13 @@ body.is-fullscreen .status-bar {
   display: none;
 }
 
-/* Hide status bar text labels on narrow sidebar */
+/* Let the status labels wrap — nowrap here would force the flex sidebar
+   wider than max-width via min-content, causing right-edge clipping. */
 body.is-fullscreen .pairs-display,
 body.is-fullscreen .tiles-display {
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  min-width: 0;
 }
 
 /* Ensure safe area padding on notched phones */
