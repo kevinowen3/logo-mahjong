@@ -34,11 +34,13 @@ Each entry is `{ id, name, svg }` where `svg` is a template literal holding a co
 
 Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orientation lock. In that mode:
 
-- Toolbar becomes a 76–84 px left sidebar ([styles.css](styles.css) `body.is-fullscreen .toolbar`). `flex: 0 0 auto` pins the size so nowrap text in `.toolbar-info` (`Pairs: 0 / 72`) can't expand the toolbar past its max-width.
+- Toolbar becomes a 76–84 px left sidebar ([styles.css](styles.css) `body.is-fullscreen .toolbar`). `flex: 0 0 auto` pins it; **do not add `white-space: nowrap` to `.pairs-display` / `.tiles-display`** — in a column-flex sidebar, nowrap makes the flex min-content equal the longest label string, which overrides `max-width` and expands the toolbar past 84 px. Labels must wrap.
+- Sidebar buttons use `padding: 0.3rem; line-height: 1; flex-shrink: 0` and `.toolbar-info` uses `flex-shrink: 0` — the entire column (title + 6 buttons + Pairs/Tiles) has to fit in ~360 CSS px of landscape viewport height on S22-class phones, or the bottom info gets pushed below the fold.
 - `calcTileSize()` measures `board-wrapper.clientHeight/clientWidth` directly rather than `globalThis.innerHeight` — this respects `dvh` and safe-area insets. (The wrapper sizes correctly via flex; viewport-height globals diverged from true layout space on mobile.) All global references use `globalThis.*`, not `window.*`, to satisfy the project's lint rule.
 - Tile aspect ratio in fullscreen is clamped `[0.85, 1.25]` — the 0.85 lower bound lets ultra-landscape phones grow tiles slightly wider-than-tall to fill horizontal space without leaving a narrow board.
 - Re-render is scheduled after `resize`, `orientationchange`, and `screen.orientation` change events, with a double-fire at 200 ms and 600 ms to catch the real viewport *after* the landscape lock completes.
 - The board is centered both axes inside the fullscreen board-wrapper.
+- `<meta name="viewport">` does **not** set `maximum-scale` or `user-scalable=no` — both trip the `Web:S7926` a11y warning and block pinch-zoom.
 
 ## Game mechanics quick reference
 
@@ -67,8 +69,10 @@ Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orient
 
 GitHub Pages is already configured (build_type `legacy`, source `main /`). Any push to `main` auto-redeploys within ~1 minute.
 
+**Cache-bust on CSS changes**: [index.html](index.html) loads `styles.css?v=N` — bump `N` whenever you modify [styles.css](styles.css). Mobile browsers (Chrome on Android in particular) cache aggressively and will otherwise serve the previous stylesheet even after a hard reload.
+
 ## Working on this project
 
 - When adding or replacing a logo, match the existing conventions above — especially the viewBox and white-background rules.
-- When the user provides a reference SVG, use its exact path data and scale it with a transform rather than re-tracing.
+- When the user provides a reference SVG, use its exact path data and scale it with a transform rather than re-tracing. If the source SVG has `<defs>` with `id="paintN_..."`, **rename the ids** (e.g., `logoid-pN`) and update all `fill="url(#...)"` references — otherwise multiple logos on the page will collide on the same gradient ids and one will steal the other's fill.
 - CSS LF→CRLF warnings on `git commit` are benign (Windows line endings).
