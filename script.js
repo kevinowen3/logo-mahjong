@@ -297,6 +297,15 @@ const TILE_COLS = 15;    // x spans 0–14 (right head extends to x=14)
 const TILE_ROWS = 8;     // y spans 0–7
 const MAX_Z = 4;         // layers 0–4 (cap at z=4)
 const EDGE_W = 6;        // 3D depth offset per layer (px)
+// Board element overhead beyond TILE_COLS*tileW / TILE_ROWS*tileH. Only 2*EDGE_W
+// (6px padding each side) — the theoretical (MAX_Z+2)*EDGE_W buffer assumes
+// stacks at every corner, but the classic-turtle layout has no z-stacking at
+// x=0, x=14, y=0, or y=7, so reserving for it just leaves dead space that
+// prevents tiles from filling the viewport and biases content off-center.
+const BOARD_PAD = 2 * EDGE_W;
+// Vertical shift applied to every tile's top so z=0 y=0 lands at EDGE_W from
+// the board's top edge instead of MAX_Z*EDGE_W.
+const TOP_SHIFT = (MAX_Z - 1) * EDGE_W;
 
 // ── Free-tile computation ──
 // Uses overlap covering (|dx|<1, |dy|<1) so the half-grid cap tile
@@ -356,7 +365,7 @@ function calcTileSize() {
     availH = globalThis.innerHeight - chrome - 16;
   }
 
-  const depth = (MAX_Z + 2) * EDGE_W;
+  const depth = BOARD_PAD;
 
   // In fullscreen, let the tile h/w ratio follow the viewport shape so the
   // board fills both dimensions. The 0.6 lower bound lets very-landscape phones
@@ -400,10 +409,9 @@ function render() {
   const freePairCount = Object.values(freeCounts).filter(c => c >= 2).length;
   document.getElementById('freePairsCount').textContent = freePairCount;
 
-  // Board pixel dimensions
-  const depth = (MAX_Z + 2) * EDGE_W;
-  const boardW = Math.ceil(TILE_COLS * tileW + depth);
-  const boardH = Math.ceil(TILE_ROWS * tileH + depth);
+  // Board pixel dimensions — tight wrap around actual tile content + shadow pad.
+  const boardW = Math.ceil(TILE_COLS * tileW + BOARD_PAD);
+  const boardH = Math.ceil(TILE_ROWS * tileH + BOARD_PAD);
   boardEl.style.width = boardW + 'px';
   boardEl.style.height = boardH + 'px';
 
@@ -433,7 +441,7 @@ function render() {
     el.style.height = tileH + 'px';
 
     const left = t.x * tileW + EDGE_W + t.z * EDGE_W;
-    const top  = t.y * tileH + (MAX_Z - t.z) * EDGE_W;
+    const top  = t.y * tileH + (MAX_Z - t.z) * EDGE_W - TOP_SHIFT;
     el.style.left = Math.round(left) + 'px';
     el.style.top  = Math.round(top) + 'px';
     el.style.zIndex = Math.round(t.z * 1000 + t.y * 100 + t.x * 2);

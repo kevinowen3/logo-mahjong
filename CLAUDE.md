@@ -16,7 +16,11 @@ TILE_COLS = 15   // x spans 0–14
 TILE_ROWS = 8    // y spans 0–7
 MAX_Z     = 4    // layers 0–4
 EDGE_W    = 6    // 3D depth offset per layer (px)
+BOARD_PAD = 12   // shadow padding each side of the board (2*EDGE_W)
+TOP_SHIFT = 18   // lifts every tile by (MAX_Z-1)*EDGE_W so z=0 y=0 sits at top=EDGE_W
 ```
+
+The board element is sized as `TILE_COLS*tileW + BOARD_PAD` × `TILE_ROWS*tileH + BOARD_PAD` — tightly wraps the tile extent with 6 px shadow pad on every side. The older `(MAX_Z+2)*EDGE_W` overhead reserved room for z=4 stacks at every corner (e.g. x=14 y=0), but the classic-turtle layout never stacks at the corners, so that buffer just left dead space that pushed tiles off-centre in the wrapper and shrank them. `TOP_SHIFT` compensates for the reduced top padding so z=0 y=0 still lands at 6 px from the board top; the relative z-layer offset (6 px per layer) is unchanged, so the 3D effect is preserved.
 
 Tile positions use a **half-grid**: some layout entries sit at `x.5` / `y.5`. `computeFree()` uses overlap covering (`|dx|<1, |dy|<1`) so a half-grid cap tile correctly covers the 2×2 integer-grid peak beneath it.
 
