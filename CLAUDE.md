@@ -28,7 +28,7 @@ Each entry is `{ id, name, svg }` where `svg` is a template literal holding a co
 - **No background rect when the tile's ceramic gradient should show through.** The tile face is `linear-gradient(168deg, #ffffff 0%, #eef0f4 100%)`. A solid `#ffffff` rect inside the SVG creates a visible seam against that gradient — so "white-background" logos (Intel, HP) omit the rect and rely on the tile.
 - **No drop shadow on white-background logos.** `feDropShadow` casts a gray halo onto any explicit white rect, showing as off-white banding. Shadows are fine on coloured-background marks.
 - **Scale foreign viewBoxes with a `transform` on a wrapping `<g>`** rather than rewriting path data. Typical pattern: `transform="translate(tx, ty) scale(s)"` where `s = targetSize / sourceSize` and `tx, ty` compensate for any non-zero origin in the source viewBox.
-- **Coverage targets**: no-background marks (Chrome, Apple, Intel, HP) scale to ~98% of the 100-unit viewBox; coloured-badge marks (Amazon, AT&T, etc.) use an `rx="18"` rounded rect at `x=8 y=8 84×84` with the glyph inside.
+- **Coverage targets**: no-background marks (Chrome, Apple, Intel, HP) scale to ~98% of the 100-unit viewBox; coloured-badge marks (Amazon, AT&T, etc.) use an `rx="18"` rounded rect at `x=8 y=8 84×84` with the glyph inside; circular full-bleed marks (e.g. Xbox's gray sphere) scale to ~93% so their visual weight matches the badge marks rather than the no-background ones.
 
 ## Fullscreen / mobile specifics
 
