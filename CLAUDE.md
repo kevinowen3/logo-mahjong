@@ -56,7 +56,7 @@ Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orient
   - plain click → About modal
   - **Shift+Click → Win modal** (test harness)
   - **Ctrl+Click → Game Over modal** (test harness)
-- **About modal** (`#aboutModal`): shown by `showAbout()`, which defers a one-shot capture-phase click listener on `document` via `setTimeout(..., 0)` so the click that opened it doesn't immediately close it. Any subsequent click anywhere on the page dismisses it.
+- **About modal** (`#aboutModal`): shown by `showAbout()`, which defers a one-shot capture-phase click listener on `document` via `setTimeout(..., 0)` so the click that opened it doesn't immediately close it. Any subsequent click anywhere on the page dismisses it. The date line (`.about-date` in [index.html](index.html)) is hardcoded — bump it by hand when shipping user-visible changes.
 - **Status bar** is a wrapper with two spans: `#status` (message, written by `setStatus()`) and `.free-pairs-display` containing `#freePairsCount`. The count span is absolutely positioned on the right so the message stays centered. Fullscreen mode hides the whole status bar.
 - **Selection / hint styling**: both use `.tile.selected` (teal ring via `box-shadow: 0 0 0 3px #00bcd4`, teal face, `z-index: 9000 !important` so the ring paints above neighbours). The hint system adds `.selected` to both tiles in a hint pair — it does not use a separate class. Any earlier `.tile.hint-glow` rule is gone; don't reintroduce it unless you also update the JS that applies the class.
 - **Deselection triggers**: `deselectTile()` clears `selectedId`, `hintPair`, and `hintIndex` and re-renders. It's called by
