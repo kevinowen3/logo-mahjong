@@ -358,13 +358,14 @@ function calcTileSize() {
 
   const depth = (MAX_Z + 2) * EDGE_W;
 
-  // In fullscreen, relax the tile h/w ratio so the board fills the viewport.
-  // Allow mildly landscape tiles (min 0.85) on very wide screens so we aren't
-  // forced to leave vertical space unused just to keep tiles portrait.
+  // In fullscreen, let the tile h/w ratio follow the viewport shape so the
+  // board fills both dimensions. The 0.6 lower bound lets very-landscape phones
+  // (S22 Ultra class: ~2:1 viewport minus browser chrome) grow tiles
+  // meaningfully wider than tall instead of leaving a horizontal band unused.
   let ratio = 1.25;
   if (isSidebar) {
     const naturalRatio = ((availH - depth) / TILE_ROWS) / ((availW - depth) / TILE_COLS);
-    ratio = Math.max(0.85, Math.min(1.25, naturalRatio));
+    ratio = Math.max(0.6, Math.min(1.25, naturalRatio));
   }
 
   const maxW = Math.floor((availW - depth) / TILE_COLS);
