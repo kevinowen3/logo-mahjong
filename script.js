@@ -371,7 +371,7 @@ function formatCount(n) {
 function renderAboutStats() {
   if (!aboutStatsEl) return;
   const p = readPersonal();
-  const sharedLine = `Played ${formatCount(stats.launches)} times · Solved ${formatCount(stats.wins)} times`;
+  const sharedLine = `Game played ${formatCount(stats.launches)} times · Solved ${formatCount(stats.wins)} times`;
   const personalBits = [
     `Your plays: ${formatCount(p.launches ?? 0)}`,
     `Your wins: ${formatCount(p.wins ?? 0)}`,
