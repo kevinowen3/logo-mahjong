@@ -60,7 +60,8 @@ Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orient
   - plain click → About modal
   - **Shift+Click → Win modal** (test harness)
   - **Ctrl+Click → Game Over modal** (test harness)
-- **About modal** (`#aboutModal`): shown by `showAbout()`, which defers a one-shot capture-phase click listener on `document` via `setTimeout(..., 0)` so the click that opened it doesn't immediately close it. Any subsequent click anywhere on the page dismisses it. The date line (`.about-date` in [index.html](index.html)) is hardcoded — bump it by hand when shipping user-visible changes.
+- **About modal** (`#aboutModal`): shown by `showAbout()`, which defers a one-shot capture-phase click listener on `document` via `setTimeout(..., 0)` so the click that opened it doesn't immediately close it. Any subsequent click anywhere on the page dismisses it. The date line (`.about-date` in [index.html](index.html)) is hardcoded — bump it by hand when shipping user-visible changes. `showAbout()` also calls `renderAboutStats()` (synchronous render from cached values) and `loadStatsForDisplay()` (fire-and-forget refresh from the shared counter) each time it opens, so the numbers are current without blocking the modal reveal.
+- **Win modal** (`#winModal`) shows the elapsed time for the just-completed game as "Finished in Xm Ys" via the `#winTime strong` span. `gameStartMs` is set at the end of `newGame()` and is intentionally not reset by `doShuffle()` — a shuffled game still belongs to the same session, and its clearing time (including all shuffles) counts toward the player's personal best. `newGame()` resets `#winTime` text to "—" so the Shift+Click test harness doesn't display a stale time from a previous real win.
 - **Status bar** is a wrapper with two spans: `#status` (message, written by `setStatus()`) and `.free-pairs-display` containing `#freePairsCount`. The count span is absolutely positioned on the right so the message stays centered. Fullscreen mode hides the whole status bar.
 - **Selection / hint styling**: both use `.tile.selected` (teal ring via `box-shadow: 0 0 0 3px #00bcd4`, teal face, `z-index: 9000 !important` so the ring paints above neighbours). The hint system adds `.selected` to both tiles in a hint pair — it does not use a separate class. Any earlier `.tile.hint-glow` rule is gone; don't reintroduce it unless you also update the JS that applies the class.
 - **Deselection triggers**: `deselectTile()` clears `selectedId`, `hintPair`, and `hintIndex` and re-renders. It's called by
@@ -69,11 +70,27 @@ Toggling `btnFullscreen` adds `body.is-fullscreen` and requests landscape orient
   3. pressing **Escape** (which also hides gallery, win, and game-over modals).
   Tile-on-tile clicks go through `onTileClick()` and don't touch `deselectTile()`.
 
+## Stats (shared counter + personal)
+
+A lightweight engagement-tracking system lives in the "Stats" section near the top of [script.js](script.js) (just after the DOM refs). Two kinds of numbers, both surfaced in the About modal:
+
+**Shared counters** (one number across everyone who plays) use the free public service [abacus.jasoncameron.dev](https://abacus.jasoncameron.dev) with namespace `kevinowen3-logo` and keys `launches` and `wins`. Incremented via `/hit/:ns/:key` (no auth); read via `/get/:ns/:key`. The admin keys returned at `/create` time let you `/reset`, `/set`, or `/delete` the counters via POST with `Authorization: Bearer <key>` — these are **not** in the committed code and must not be. Keep them in a password manager; if lost, the counters can't be administratively reset but the `/hit` path keeps working. Every `/hit` resets the 6-month expiry, so as long as the game gets any traffic the counters don't auto-expire.
+
+**Threshold rule**: the `launches` counter increments exactly once per game, triggered from the match-success hook inside `matchPair()` when `matchedPairs >= PLAY_THRESHOLD_PAIRS` (3). This is what the counter actually measures — "someone engaged with a game", not "someone loaded the page". The idempotency comes from `playCountedThisGame`, a boolean flag reset inside `newGame()`; without that flag, the threshold could retrigger via undo→rematch. Nothing fires on page load, nothing fires on the New Game click itself, and nothing fires on the Shift+Click / Ctrl+Click test-harness paths (they never call `matchPair()`). The `wins` counter fires once inside `checkEndConditions()` when all tiles are cleared.
+
+**Dev exclusion**: `IS_DEV` is true on `localhost`, `127.0.0.1`, `[::1]`, or `file://`. When true, `maybeBumpPlay()` and `bumpWins()` still update localStorage personal stats but skip the network call entirely. This is a secondary filter — the threshold rule already excludes typical dev-by-deployed-site quick checks that don't involve 3 real matches.
+
+**Personal stats** live in `localStorage` under the key `logo:personal-stats` as JSON: `{ launches, wins, bestTimeMs, lastPlayedMs }`. These follow the same threshold rule as shared stats so the labels mean the same thing on both lines. `readPersonal()` / `writePersonal()` wrap the storage in try/catch — private-browsing and quota-exceeded both fall back silently. `recordWinTime()` only writes `bestTimeMs` when the new elapsed is lower, so it's monotonic-improving.
+
+**Graceful failure**: all abacus calls go through `counterFetch()`, which returns `null` on any non-2xx response, network error, or JSON parse failure. Null values render as `—` in the About modal. `renderAboutStats()` is safe to call when counters have never loaded — it just shows `—` for the shared line.
+
+**Display helpers**: `formatDuration(ms)` renders `47s`, `6m 14s`, or `1h 02m 05s`; `formatRelative(ms)` turns a timestamp into "just now" / "4 minutes ago" / "yesterday" / "3 days ago" / absolute date for >30 days; `formatCount(n)` handles null and formats with locale separators.
+
 ## Deploying
 
 GitHub Pages is already configured (build_type `legacy`, source `main /`). Any push to `main` auto-redeploys within ~1 minute.
 
-**Cache-bust on CSS changes**: [index.html](index.html) loads `styles.css?v=N` — bump `N` whenever you modify [styles.css](styles.css). Mobile browsers (Chrome on Android in particular) cache aggressively and will otherwise serve the previous stylesheet even after a hard reload.
+**Cache-bust on CSS *and* JS changes**: [index.html](index.html) loads `styles.css?v=N` and `script.js?v=M` — bump the matching `v=` whenever you modify either file. Mobile browsers (Chrome on Android in particular) cache aggressively and will otherwise serve the previous asset even after a hard reload.
 
 ## Working on this project
 

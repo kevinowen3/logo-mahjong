@@ -256,6 +256,8 @@ let undoStack = [];
 let matchedPairs = 0;
 let hintPair = null;      // currently displayed hint pair [uidA, uidB]
 let hintIndex = 0;        // cycles through available pairs on repeated clicks
+let gameStartMs = Date.now();
+let playCountedThisGame = false;
 
 // DOM refs
 const boardEl = document.getElementById('board');
@@ -266,6 +268,119 @@ const galleryEl = document.getElementById('gallery');
 const galleryGridEl = document.getElementById('galleryGrid');
 const winModal = document.getElementById('winModal');
 const gameOverModal = document.getElementById('gameOverModal');
+const aboutStatsEl = document.getElementById('aboutStats');
+const winTimeEl = document.querySelector('#winTime strong');
+
+// ── Stats (shared counter + personal) ──
+const COUNTER_BASE = 'https://abacus.jasoncameron.dev';
+const COUNTER_NS = 'kevinowen3-logo';
+const COUNTER_KEYS = { launches: 'launches', wins: 'wins' };
+const LS_STATS_KEY = 'logo:personal-stats';
+const PLAY_THRESHOLD_PAIRS = 3;
+const IS_DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(globalThis.location.hostname)
+            || globalThis.location.protocol === 'file:';
+
+const stats = { launches: null, wins: null };
+
+async function counterFetch(pathParts) {
+  try {
+    const r = await fetch(`${COUNTER_BASE}/${pathParts.join('/')}`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.value ?? null;
+  } catch { return null; }
+}
+
+function readPersonal() {
+  try { return JSON.parse(globalThis.localStorage.getItem(LS_STATS_KEY)) ?? {}; }
+  catch { return {}; }
+}
+function writePersonal(p) {
+  try { globalThis.localStorage.setItem(LS_STATS_KEY, JSON.stringify(p)); } catch { /* quota / private-mode */ }
+}
+function bumpPersonal(kind) {
+  const p = readPersonal();
+  p[kind] = (p[kind] ?? 0) + 1;
+  p.lastPlayedMs = Date.now();
+  writePersonal(p);
+}
+function recordWinTime(elapsedMs) {
+  const p = readPersonal();
+  if (p.bestTimeMs == null || elapsedMs < p.bestTimeMs) p.bestTimeMs = elapsedMs;
+  writePersonal(p);
+}
+
+async function maybeBumpPlay() {
+  if (playCountedThisGame) return;
+  playCountedThisGame = true;
+  bumpPersonal('launches');
+  if (!IS_DEV) {
+    const v = await counterFetch(['hit', COUNTER_NS, COUNTER_KEYS.launches]);
+    if (v != null) stats.launches = v;
+  }
+  renderAboutStats();
+}
+
+async function bumpWins() {
+  bumpPersonal('wins');
+  if (!IS_DEV) {
+    const v = await counterFetch(['hit', COUNTER_NS, COUNTER_KEYS.wins]);
+    if (v != null) stats.wins = v;
+  }
+  renderAboutStats();
+}
+
+async function loadStatsForDisplay() {
+  const [launches, wins] = await Promise.all([
+    counterFetch(['get', COUNTER_NS, COUNTER_KEYS.launches]),
+    counterFetch(['get', COUNTER_NS, COUNTER_KEYS.wins]),
+  ]);
+  stats.launches = launches;
+  stats.wins = wins;
+  renderAboutStats();
+}
+
+function formatDuration(ms) {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
+function formatRelative(ms) {
+  if (ms == null || !Number.isFinite(ms)) return '—';
+  const diff = Date.now() - ms;
+  if (diff < 45_000) return 'just now';
+  if (diff < 90_000) return 'a minute ago';
+  if (diff < 3_600_000) return `${Math.round(diff / 60_000)} minutes ago`;
+  if (diff < 5_400_000) return 'an hour ago';
+  if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)} hours ago`;
+  if (diff < 172_800_000) return 'yesterday';
+  if (diff < 30 * 86_400_000) return `${Math.round(diff / 86_400_000)} days ago`;
+  return new Date(ms).toLocaleDateString();
+}
+
+function formatCount(n) {
+  return n == null ? '—' : n.toLocaleString();
+}
+
+function renderAboutStats() {
+  if (!aboutStatsEl) return;
+  const p = readPersonal();
+  const sharedLine = `Played ${formatCount(stats.launches)} times · Solved ${formatCount(stats.wins)} times`;
+  const personalBits = [
+    `Your plays: ${formatCount(p.launches ?? 0)}`,
+    `Your wins: ${formatCount(p.wins ?? 0)}`,
+  ];
+  if (p.bestTimeMs != null) personalBits.push(`Best time: ${formatDuration(p.bestTimeMs)}`);
+  if (p.lastPlayedMs != null) personalBits.push(`Last play: ${formatRelative(p.lastPlayedMs)}`);
+  aboutStatsEl.innerHTML = `<div class="shared">${sharedLine}</div>`
+    + `<div class="personal">${personalBits.join(' · ')}</div>`;
+}
 
 // ── Shuffle utility ──
 function shuffle(arr) {
@@ -466,6 +581,7 @@ function matchPair(uidA, uidB) {
   b.removed = true;
   undoStack.push({ a: a.uid, b: b.uid });
   matchedPairs++;
+  if (matchedPairs >= PLAY_THRESHOLD_PAIRS) maybeBumpPlay();
   hintPair = null;
   hintIndex = 0;
   selectedId = null;
@@ -534,6 +650,10 @@ function onTileClick(uid, isFree) {
 function checkEndConditions() {
   const remaining = tiles.filter(t => !t.removed).length;
   if (remaining === 0) {
+    const elapsedMs = Date.now() - gameStartMs;
+    recordWinTime(elapsedMs);
+    bumpWins();
+    if (winTimeEl) winTimeEl.textContent = formatDuration(elapsedMs);
     setTimeout(() => winModal.classList.remove('hidden'), 400);
     return;
   }
@@ -603,6 +723,9 @@ function newGame() {
   matchedPairs = 0;
   undoStack = [];
   selectedId = null;
+  gameStartMs = Date.now();
+  playCountedThisGame = false;
+  if (winTimeEl) winTimeEl.textContent = '—';
   buildTiles();
   setStatus('New game started. Click a free tile to begin.');
   render();
@@ -655,6 +778,8 @@ document.getElementById('btnNewGameAfterGameOver').addEventListener('click', new
 const aboutModal = document.getElementById('aboutModal');
 function hideAbout() { aboutModal.classList.add('hidden'); }
 function showAbout() {
+  renderAboutStats();
+  loadStatsForDisplay();
   aboutModal.classList.remove('hidden');
   setTimeout(() => {
     document.addEventListener('click', hideAbout, { once: true, capture: true });
@@ -753,4 +878,7 @@ screen.orientation?.addEventListener?.('change', () => {
 
 // ── Initialize (defer so flex layout is fully computed) ──
 buildGallery();
-requestAnimationFrame(() => newGame());
+requestAnimationFrame(() => {
+  newGame();
+  loadStatsForDisplay();
+});

@@ -292,6 +292,23 @@ html, body {
 .modal-content.about-content h2 { color: #222; margin-bottom: 1rem; }
 .modal-content.about-content p { margin: 0.4rem 0; color: #333; }
 .modal-content.about-content .about-date { margin-top: 1rem; color: #777; font-size: 0.9rem; }
+.modal-content.about-content .about-stats {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  font-size: 0.9rem;
+  color: #444;
+  line-height: 1.5;
+  text-align: center;
+}
+.modal-content.about-content .about-stats .shared { color: #333; }
+.modal-content.about-content .about-stats .personal { color: #777; margin-top: 0.35rem; }
+.modal-content .win-time {
+  margin: 0.25rem 0 1rem;
+  color: #444;
+  font-size: 0.95rem;
+}
+.modal-content .win-time strong { color: #222; }
 .modal-content h2 { margin-bottom: 0.5rem; color: #1a5c30; }
 .modal-content h2.game-over-heading { color: #a83232; }
 .modal-content p  { margin-bottom: 1.2rem; color: #555; }

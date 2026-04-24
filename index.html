@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Logo – Mahjong Solitaire</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <div id="app">
@@ -53,7 +53,8 @@
       <h2>About Logo</h2>
       <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
       <p>Written by Kevin Owen</p>
-      <p class="about-date">Date: 23 Apr 2026</p>
+      <p class="about-date">Date: 24 Apr 2026</p>
+      <div class="about-stats" id="aboutStats"></div>
     </div>
   </div>
 
@@ -61,6 +62,7 @@
     <div class="modal-content">
       <h2>Congratulations!</h2>
       <p>You cleared all the tiles!</p>
+      <p class="win-time" id="winTime">Finished in <strong>&mdash;</strong></p>
       <button id="btnNewAfterWin">Play Again</button>
     </div>
   </div>
@@ -77,6 +79,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>
