@@ -256,7 +256,10 @@ let undoStack = [];
 let matchedPairs = 0;
 let hintPair = null;      // currently displayed hint pair [uidA, uidB]
 let hintIndex = 0;        // cycles through available pairs on repeated clicks
-let gameStartMs = Date.now();
+let gameStartMs = null;
+let gameEndMs = null;
+let paused = false;
+let pausedAtMs = null;
 let playCountedThisGame = false;
 
 // DOM refs
@@ -270,12 +273,15 @@ const winModal = document.getElementById('winModal');
 const gameOverModal = document.getElementById('gameOverModal');
 const aboutStatsEl = document.getElementById('aboutStats');
 const winTimeEl = document.querySelector('#winTime strong');
+const timerDisplayEl = document.getElementById('timerDisplay');
+const showTimerToggleEl = document.getElementById('showTimerToggle');
 
 // ── Stats (shared counter + personal) ──
 const COUNTER_BASE = 'https://abacus.jasoncameron.dev';
 const COUNTER_NS = 'kevinowen3-logo';
 const COUNTER_KEYS = { launches: 'launches', wins: 'wins' };
 const LS_STATS_KEY = 'logo:personal-stats';
+const LS_TIMER_KEY = 'logo:show-timer';
 const PLAY_THRESHOLD_PAIRS = 3;
 const IS_DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(globalThis.location.hostname)
             || globalThis.location.protocol === 'file:';
@@ -381,6 +387,64 @@ function renderAboutStats() {
   aboutStatsEl.innerHTML = `<div class="shared">${sharedLine}</div>`
     + `<div class="personal">${personalBits.join(' · ')}</div>`
     + (lastPlayLine ? `<div class="personal">${lastPlayLine}</div>` : '');
+}
+
+// ── Timer display (optional, opt-in via About modal) ──
+function readShowTimer() {
+  try { return globalThis.localStorage.getItem(LS_TIMER_KEY) === '1'; }
+  catch { return false; }
+}
+function writeShowTimer(on) {
+  try { globalThis.localStorage.setItem(LS_TIMER_KEY, on ? '1' : '0'); } catch { /* quota / private-mode */ }
+}
+function formatStopwatch(ms) {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+function updateTimerDisplay() {
+  if (!timerDisplayEl) return;
+  if (gameStartMs === null) {
+    timerDisplayEl.textContent = '0:00';
+    timerDisplayEl.classList.remove('paused');
+    return;
+  }
+  const endMs = gameEndMs ?? (paused ? pausedAtMs : Date.now());
+  const text = formatStopwatch(endMs - gameStartMs);
+  timerDisplayEl.textContent = paused ? `${text} ⏸` : text;
+  timerDisplayEl.classList.toggle('paused', paused);
+}
+function toggleTimerPause() {
+  if (gameStartMs === null || gameEndMs !== null) return;
+  if (paused) {
+    gameStartMs += Date.now() - pausedAtMs;
+    pausedAtMs = null;
+    paused = false;
+  } else {
+    pausedAtMs = Date.now();
+    paused = true;
+  }
+  updateTimerDisplay();
+}
+function resumeTimerIfPaused() {
+  if (!paused) return;
+  gameStartMs += Date.now() - pausedAtMs;
+  pausedAtMs = null;
+  paused = false;
+  updateTimerDisplay();
+}
+function applyTimerVisibility() {
+  if (!timerDisplayEl) return;
+  const show = readShowTimer();
+  timerDisplayEl.classList.toggle('hidden', !show);
+  if (show) updateTimerDisplay();
+}
+function syncTimerToggle() {
+  if (showTimerToggleEl) showTimerToggleEl.checked = readShowTimer();
 }
 
 // ── Shuffle utility ──
@@ -600,10 +664,13 @@ function matchPair(uidA, uidB) {
 
 // ── Tile click handler ──
 function onTileClick(uid, isFree) {
+  resumeTimerIfPaused();
   if (!isFree) {
     setStatus('That tile is blocked. Choose one with a free left or right edge.');
     return;
   }
+
+  if (gameStartMs === null) gameStartMs = Date.now();
 
   // If a hint pair is showing, clicking one of its tiles accepts the match
   if (hintPair) {
@@ -651,10 +718,12 @@ function onTileClick(uid, isFree) {
 function checkEndConditions() {
   const remaining = tiles.filter(t => !t.removed).length;
   if (remaining === 0) {
-    const elapsedMs = Date.now() - gameStartMs;
+    gameEndMs = Date.now();
+    const elapsedMs = gameEndMs - gameStartMs;
     recordWinTime(elapsedMs);
     bumpWins();
     if (winTimeEl) winTimeEl.textContent = formatDuration(elapsedMs);
+    updateTimerDisplay();
     setTimeout(() => winModal.classList.remove('hidden'), 400);
     return;
   }
@@ -667,6 +736,7 @@ function checkEndConditions() {
 
 // ── Hint ──
 function doHint() {
+  resumeTimerIfPaused();
   selectedId = null;
   const pairs = findFreePairs();
   if (pairs.length === 0) {
@@ -688,6 +758,7 @@ function doHint() {
 
 // ── Undo ──
 function doUndo() {
+  resumeTimerIfPaused();
   hintPair = null; hintIndex = 0;
   gameOverModal.classList.add('hidden');
   if (undoStack.length === 0) {
@@ -705,6 +776,7 @@ function doUndo() {
 
 // ── Shuffle ──
 function doShuffle() {
+  resumeTimerIfPaused();
   hintPair = null; hintIndex = 0;
   gameOverModal.classList.add('hidden');
   const active = tiles.filter(t => !t.removed);
@@ -724,12 +796,16 @@ function newGame() {
   matchedPairs = 0;
   undoStack = [];
   selectedId = null;
-  gameStartMs = Date.now();
+  gameStartMs = null;
+  gameEndMs = null;
+  paused = false;
+  pausedAtMs = null;
   playCountedThisGame = false;
   if (winTimeEl) winTimeEl.textContent = '—';
   buildTiles();
   setStatus('New game started. Click a free tile to begin.');
   render();
+  updateTimerDisplay();
 }
 
 // ── Status ──
@@ -777,14 +853,33 @@ document.getElementById('btnShuffleAfterGameOver').addEventListener('click', doS
 document.getElementById('btnNewGameAfterGameOver').addEventListener('click', newGame);
 
 const aboutModal = document.getElementById('aboutModal');
-function hideAbout() { aboutModal.classList.add('hidden'); }
+const aboutContentEl = aboutModal.querySelector('.about-content');
+function aboutOutsideClick(e) {
+  if (aboutContentEl.contains(e.target)) return;
+  hideAbout();
+}
+function hideAbout() {
+  document.removeEventListener('click', aboutOutsideClick, true);
+  aboutModal.classList.add('hidden');
+}
 function showAbout() {
   renderAboutStats();
   loadStatsForDisplay();
+  syncTimerToggle();
   aboutModal.classList.remove('hidden');
   setTimeout(() => {
-    document.addEventListener('click', hideAbout, { once: true, capture: true });
+    document.addEventListener('click', aboutOutsideClick, true);
   }, 0);
+}
+
+if (showTimerToggleEl) {
+  showTimerToggleEl.addEventListener('change', () => {
+    writeShowTimer(showTimerToggleEl.checked);
+    applyTimerVisibility();
+  });
+}
+if (timerDisplayEl) {
+  timerDisplayEl.addEventListener('click', toggleTimerPause);
 }
 document.getElementById('gameTitle').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -802,6 +897,7 @@ galleryEl.addEventListener('click', (e) => {
 });
 
 function deselectTile() {
+  resumeTimerIfPaused();
   if (selectedId === null && !hintPair) return;
   selectedId = null;
   hintPair = null;
@@ -882,4 +978,7 @@ buildGallery();
 requestAnimationFrame(() => {
   newGame();
   loadStatsForDisplay();
+  syncTimerToggle();
+  applyTimerVisibility();
+  setInterval(updateTimerDisplay, 1000);
 });

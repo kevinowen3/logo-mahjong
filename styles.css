@@ -90,11 +90,34 @@ html, body {
   align-items: center;
   overflow: auto;
   min-height: 0;
+  position: relative;
 }
 
 .board {
   position: relative;
 }
+
+.timer-display {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 100;
+  padding: 0.25rem 0.6rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: 0.5px;
+  transition: background 0.15s ease;
+}
+.timer-display.paused {
+  background: rgba(217, 119, 6, 0.9);
+}
+.timer-display.hidden { display: none; }
 
 /* ─── Tiles (ceramic 3D block look) ─── */
 .tile {
@@ -303,6 +326,18 @@ html, body {
 }
 .modal-content.about-content .about-stats .shared { color: #333; }
 .modal-content.about-content .about-stats .personal { color: #777; margin-top: 0.35rem; }
+.modal-content.about-content .about-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #444;
+  cursor: pointer;
+  user-select: none;
+}
+.modal-content.about-content .about-toggle input { cursor: pointer; }
 .modal-content .win-time {
   margin: 0.25rem 0 1rem;
   color: #444;
