@@ -84,6 +84,8 @@ A lightweight engagement-tracking system lives in the "Stats" section near the t
 
 **Graceful failure**: all abacus calls go through `counterFetch()`, which returns `null` on any non-2xx response, network error, or JSON parse failure. Null values render as `—` in the About modal. `renderAboutStats()` is safe to call when counters have never loaded — it just shows `—` for the shared line.
 
+**About modal layout**: `renderAboutStats()` emits three rows: a `.shared` line (Game played / Solved counts), a `.personal` line (Your plays · Your wins · Best time), and a separate `.personal` line for `Last play: …`. "Last play" gets its own row because cramming it onto the personal line wraps awkwardly on narrow phones — keep it as a distinct `<div>` rather than appending to `personalBits`.
+
 **Display helpers**: `formatDuration(ms)` renders `47s`, `6m 14s`, or `1h 02m 05s`; `formatRelative(ms)` turns a timestamp into "just now" / "4 minutes ago" / "yesterday" / "3 days ago" / absolute date for >30 days; `formatCount(n)` handles null and formats with locale separators.
 
 ## Deploying
