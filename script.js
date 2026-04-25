@@ -377,9 +377,10 @@ function renderAboutStats() {
     `Your wins: ${formatCount(p.wins ?? 0)}`,
   ];
   if (p.bestTimeMs != null) personalBits.push(`Best time: ${formatDuration(p.bestTimeMs)}`);
-  if (p.lastPlayedMs != null) personalBits.push(`Last play: ${formatRelative(p.lastPlayedMs)}`);
+  const lastPlayLine = p.lastPlayedMs != null ? `Last play: ${formatRelative(p.lastPlayedMs)}` : '';
   aboutStatsEl.innerHTML = `<div class="shared">${sharedLine}</div>`
-    + `<div class="personal">${personalBits.join(' · ')}</div>`;
+    + `<div class="personal">${personalBits.join(' · ')}</div>`
+    + (lastPlayLine ? `<div class="personal">${lastPlayLine}</div>` : '');
 }
 
 // ── Shuffle utility ──
