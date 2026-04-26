@@ -338,6 +338,12 @@ html, body {
   user-select: none;
 }
 .modal-content.about-content .about-toggle input { cursor: pointer; }
+.modal-content.about-content .about-hint {
+  margin: 0.35rem 0 0;
+  color: #777;
+  font-size: 0.8rem;
+  font-style: italic;
+}
 .modal-content .win-time {
   margin: 0.25rem 0 1rem;
   color: #444;
