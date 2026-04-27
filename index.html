@@ -8,14 +8,17 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Logo – Mahjong Solitaire</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <div id="app">
     <nav class="toolbar">
       <span id="gameTitle" class="game-title" title="About Logo"><span class="gt-l">L</span><span class="gt-o1">o</span><span class="gt-g">g</span><span class="gt-o2">o</span></span>
       <div class="toolbar-buttons">
-        <button id="btnNew" title="New Game">&#9654; New Game</button>
+        <span class="btn-split">
+          <button id="btnNewLevel" title="Choose level" aria-haspopup="dialog">&#9654;</button>
+          <button id="btnNew" title="New Game">New Game</button>
+        </span>
         <button id="btnHint" title="Hint">&#128161; Hint</button>
         <button id="btnUndo" title="Undo">&#8630; Undo</button>
         <button id="btnShuffle" title="Shuffle">&#128256; Shuffle</button>
@@ -23,7 +26,7 @@
         <button id="btnFullscreen" title="Fullscreen">&#x26F6; Fullscreen</button>
       </div>
       <div class="toolbar-info">
-        <span class="pairs-display">Pairs: <strong id="pairsCount">0</strong> / <strong>72</strong></span>
+        <span class="pairs-display">Pairs: <strong id="pairsCount">0</strong> / <strong id="pairsTotal">72</strong></span>
         <span class="tiles-display">Tiles: <strong id="tilesLeft">144</strong></span>
       </div>
     </nav>
@@ -42,10 +45,22 @@
   <div id="gallery" class="gallery-overlay hidden">
     <div class="gallery-panel">
       <div class="gallery-header">
-        <h2>All Company Logos</h2>
+        <h2>All Company or Product Logos</h2>
         <button id="btnCloseGallery" class="close-btn">&times; Close</button>
       </div>
       <div id="galleryGrid" class="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div id="difficultyModal" class="modal-overlay hidden">
+    <div class="modal-content difficulty-content">
+      <h2>Choose Level</h2>
+      <p class="difficulty-blurb">Smaller boards use fewer logos and finish faster.</p>
+      <div class="modal-buttons difficulty-buttons">
+        <button data-level="advanced">Smarty Pants<span class="difficulty-meta">144 tiles &middot; 36 logos</span></button>
+        <button data-level="intermediate">Padawan<span class="difficulty-meta">72 tiles &middot; 18 logos</span></button>
+        <button data-level="beginner">Baby<span class="difficulty-meta">44 tiles &middot; 11 logos</span></button>
+      </div>
     </div>
   </div>
 
@@ -55,7 +70,7 @@
       <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
       <p>Written by Kevin Owen</p>
       <p>with help from Claude Code</p>
-      <p class="about-date">Date: 26 Apr 2026</p>
+      <p class="about-date">Date: 27 Apr 2026</p>
       <label class="about-toggle"><input type="checkbox" id="showTimerToggle"> Show elapsed time during play</label>
       <p class="about-hint">To pause the timer, click on the elapsed time displayed.</p>
       <div class="about-stats" id="aboutStats"></div>
@@ -83,6 +98,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=17"></script>
 </body>
 </html>

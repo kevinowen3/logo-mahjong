@@ -185,6 +185,30 @@ const LOGOS = [
   }
 ];
 
+// ── Difficulty levels ──
+// Internal IDs (beginner/intermediate/advanced) are stable; display labels live in LEVEL_LABELS.
+const LEVEL_LABELS = {
+  beginner: 'Baby',
+  intermediate: 'Padawan',
+  advanced: 'Smarty Pants',
+};
+
+// Curated, nested logo subsets. Beginner ⊂ Intermediate ⊂ all 36.
+const BEGINNER_LOGO_IDS = [
+  'apple', 'google', 'youtube', 'microsoft', 'amazon',
+  'netflix', 'chrome', 'android', 'xbox', 'tesla', 'nasa',
+];
+const INTERMEDIATE_LOGO_IDS = [
+  ...BEGINNER_LOGO_IDS,
+  'meta', 'spotify', 'firefox', 'slack', 'adobe', 'intel', 'hp',
+];
+
+function activeLogoIds() {
+  if (currentDifficulty === 'beginner') return BEGINNER_LOGO_IDS;
+  if (currentDifficulty === 'intermediate') return INTERMEDIATE_LOGO_IDS;
+  return LOGOS.map(l => l.id);
+}
+
 
 // ── Classic Turtle Layout (144 tiles) ──
 // Integer grid for the main body.  4 special tiles sit at HALF-GRID
@@ -193,10 +217,19 @@ const LOGOS = [
 //   • right wing  x=13,  y=3.5, z=0  (turtle head, bottom)
 //   • right wing  x=13,  y=3.5, z=1  (turtle head, stacked on top)
 //   • cap tile    x=6.5, y=3.5, z=4  (single peak tile)
-function generateLayout() {
+function expandRows(positions, def) {
+  def.forEach(layer => {
+    layer.rows.forEach(row => {
+      row.xs.forEach(x => positions.push({ x, y: row.y, z: layer.z }));
+    });
+  });
+}
+
+// Smarty Pants — the classic 144-tile turtle (existing layout, unchanged geometry).
+function buildAdvancedLayout() {
   const positions = [];
-  const def = [
-    // Layer 0 — 84 grid tiles (no wings on the integer rows)
+  expandRows(positions, [
+    // Layer 0 — 84 grid tiles
     { z: 0, rows: [
       { y: 0, xs: [1,2,3,4,5,6,7,8,9,10,11,12] },                    // 12
       { y: 1, xs: [3,4,5,6,7,8,9,10] },                               // 8
@@ -209,45 +242,128 @@ function generateLayout() {
     ]},
     // Layer 1 — 36 grid tiles (6×6 centred)
     { z: 1, rows: [
-      { y: 1, xs: [4,5,6,7,8,9] },                                    // 6
+      { y: 1, xs: [4,5,6,7,8,9] },
+      { y: 2, xs: [4,5,6,7,8,9] },
+      { y: 3, xs: [4,5,6,7,8,9] },
+      { y: 4, xs: [4,5,6,7,8,9] },
+      { y: 5, xs: [4,5,6,7,8,9] },
+      { y: 6, xs: [4,5,6,7,8,9] },
+    ]},
+    // Layer 2 — 16 grid tiles (4×4 centred)
+    { z: 2, rows: [
+      { y: 2, xs: [5,6,7,8] },
+      { y: 3, xs: [5,6,7,8] },
+      { y: 4, xs: [5,6,7,8] },
+      { y: 5, xs: [5,6,7,8] },
+    ]},
+    // Layer 3 — 4 grid tiles (2×2 near-peak)
+    { z: 3, rows: [
+      { y: 3, xs: [6,7] },
+      { y: 4, xs: [6,7] },
+    ]},
+  ]);
+  positions.push(
+    { x: 0,   y: 3.5, z: 0 },   // left wing
+    { x: 13,  y: 3.5, z: 0 },   // right wing 1
+    { x: 14,  y: 3.5, z: 0 },   // right wing 2
+    { x: 6.5, y: 3.5, z: 4 },   // cap
+  );
+  return positions; // 84 + 3 + 36 + 16 + 4 + 1 = 144
+}
+
+// Padawan — 72 tiles. Per user spec: row widths 8, 6, 10, 10, 6, 8 (top to
+// bottom) with 1 left wing + 2 right wings at half-grid y=2.5 between
+// rows 3 and 4. Total: 48 base + 3 wings + 16 layer-1 + 4 layer-2 + 1 cap.
+function buildIntermediateLayout() {
+  const positions = [];
+  expandRows(positions, [
+    // Layer 0 — 48 base tiles. Widest rows (10) at the middle two, with
+    // narrower rows tapering to 6, then 8-wide top/bottom strips.
+    { z: 0, rows: [
+      { y: 0, xs: [2,3,4,5,6,7,8,9] },              //  8 wide top strip
+      { y: 1, xs: [3,4,5,6,7,8] },                  //  6 wide
+      { y: 2, xs: [1,2,3,4,5,6,7,8,9,10] },          // 10 wide
+      { y: 3, xs: [1,2,3,4,5,6,7,8,9,10] },          // 10 wide
+      { y: 4, xs: [3,4,5,6,7,8] },                  //  6 wide
+      { y: 5, xs: [2,3,4,5,6,7,8,9] },              //  8 wide bottom strip
+    ]},
+    // Layer 1 — 16 (4×4 centred over body middle x=5.5, y=2.5)
+    { z: 1, rows: [
+      { y: 1, xs: [4,5,6,7] },
+      { y: 2, xs: [4,5,6,7] },
+      { y: 3, xs: [4,5,6,7] },
+      { y: 4, xs: [4,5,6,7] },
+    ]},
+    // Layer 2 — 4 (2×2)
+    { z: 2, rows: [
+      { y: 2, xs: [5,6] },
+      { y: 3, xs: [5,6] },
+    ]},
+  ]);
+  // 1 left + 2 right wings at half-grid y=2.5 (between rows 3 and 4) + cap
+  positions.push(
+    { x: 0,   y: 2.5, z: 0 },   // left wing
+    { x: 11,  y: 2.5, z: 0 },   // right wing 1
+    { x: 12,  y: 2.5, z: 0 },   // right wing 2
+    { x: 5.5, y: 2.5, z: 3 },   // cap
+  );
+  return positions; // 48 + 16 + 4 + 3 + 1 = 72
+}
+
+// Baby — 44 tiles. Smallest turtle, 3 layers.
+function buildBeginnerLayout() {
+  const positions = [];
+  expandRows(positions, [
+    // Layer 0 — 32 grid tiles (6 cols × 6 rows minus 4 corners)
+    { z: 0, rows: [
+      { y: 1, xs: [5,6,7,8] },                                        // 4
       { y: 2, xs: [4,5,6,7,8,9] },                                    // 6
       { y: 3, xs: [4,5,6,7,8,9] },                                    // 6
       { y: 4, xs: [4,5,6,7,8,9] },                                    // 6
       { y: 5, xs: [4,5,6,7,8,9] },                                    // 6
-      { y: 6, xs: [4,5,6,7,8,9] },                                    // 6
+      { y: 6, xs: [5,6,7,8] },                                        // 4
     ]},
-    // Layer 2 — 16 grid tiles (4×4 centred)
-    { z: 2, rows: [
-      { y: 2, xs: [5,6,7,8] },                                        // 4
-      { y: 3, xs: [5,6,7,8] },                                        // 4
-      { y: 4, xs: [5,6,7,8] },                                        // 4
-      { y: 5, xs: [5,6,7,8] },                                        // 4
+    // Layer 1 — 8 (4×2 centred)
+    { z: 1, rows: [
+      { y: 3, xs: [5,6,7,8] },
+      { y: 4, xs: [5,6,7,8] },
     ]},
-    // Layer 3 — 4 grid tiles (2×2 near-peak)
-    { z: 3, rows: [
-      { y: 3, xs: [6,7] },                                            // 2
-      { y: 4, xs: [6,7] },                                            // 2
-    ]},
-  ];
-
-  def.forEach(layer => {
-    layer.rows.forEach(row => {
-      row.xs.forEach(x => positions.push({ x, y: row.y, z: layer.z }));
-    });
-  });
-
-  // 4 special HALF-GRID tiles (between rows 3 & 4)
+  ]);
+  // 3 wings + cap
   positions.push(
-    { x: 0,   y: 3.5, z: 0 },   // left wing  (tail, 1 tile)
-    { x: 13,  y: 3.5, z: 0 },   // right wing (head, tile 1)
-    { x: 14,  y: 3.5, z: 0 },   // right wing (head, tile 2 — to its right)
-    { x: 6.5, y: 3.5, z: 4 },   // cap (peak, between cols 6-7)
+    { x: 3,   y: 3.5, z: 0 },   // left wing
+    { x: 10,  y: 3.5, z: 0 },   // right wing 1
+    { x: 11,  y: 3.5, z: 0 },   // right wing 2
+    { x: 6.5, y: 3.5, z: 2 },   // cap
   );
-
-  return positions; // 84 + 36 + 16 + 4 + 4 = 144
+  return positions; // 32 + 8 + 3 + 1 = 44
 }
 
-const LAYOUT = generateLayout();
+function buildLayoutFor(level) {
+  if (level === 'beginner')    return buildBeginnerLayout();
+  if (level === 'intermediate') return buildIntermediateLayout();
+  return buildAdvancedLayout();
+}
+
+function layoutExtents(layout) {
+  const maxX = Math.max(...layout.map(p => p.x));
+  const maxY = Math.max(...layout.map(p => p.y));
+  return { cols: Math.ceil(maxX) + 1, rows: Math.ceil(maxY) + 1 };
+}
+
+// Shift a layout so its bounding box starts at (0, 0). Without this, smaller
+// layouts (Baby, Padawan) leave dead space on the top/left of the board
+// element, biasing tiles toward the bottom-right of the wrapper and
+// shrinking them via TILE_COLS/TILE_ROWS that include the dead space.
+// Relative positions are preserved, so computeFree() / render() are unaffected.
+function normalizeLayout(layout) {
+  const minX = Math.floor(Math.min(...layout.map(p => p.x)));
+  const minY = Math.floor(Math.min(...layout.map(p => p.y)));
+  if (minX === 0 && minY === 0) return layout;
+  return layout.map(p => ({ ...p, x: p.x - minX, y: p.y - minY }));
+}
+
+let LAYOUT = buildAdvancedLayout(); // reassigned by applyDifficulty()
 
 // ── Game State ──
 let tiles = [];
@@ -265,6 +381,7 @@ let playCountedThisGame = false;
 // DOM refs
 const boardEl = document.getElementById('board');
 const pairsEl = document.getElementById('pairsCount');
+const pairsTotalEl = document.getElementById('pairsTotal');
 const tilesLeftEl = document.getElementById('tilesLeft');
 const statusEl = document.getElementById('status');
 const galleryEl = document.getElementById('gallery');
@@ -282,7 +399,34 @@ const COUNTER_NS = 'kevinowen3-logo';
 const COUNTER_KEYS = { launches: 'launches', wins: 'wins' };
 const LS_STATS_KEY = 'logo:personal-stats';
 const LS_TIMER_KEY = 'logo:show-timer';
+const LS_DIFFICULTY_KEY = 'logo:difficulty';
+const DIFFICULTIES = new Set(['beginner', 'intermediate', 'advanced']);
 const PLAY_THRESHOLD_PAIRS = 3;
+
+// ── Difficulty state ──
+function readDifficulty() {
+  try {
+    const v = globalThis.localStorage.getItem(LS_DIFFICULTY_KEY);
+    return DIFFICULTIES.has(v) ? v : 'advanced';
+  } catch { return 'advanced'; }
+}
+function writeDifficulty(d) {
+  try { globalThis.localStorage.setItem(LS_DIFFICULTY_KEY, d); } catch { /* private mode / quota */ }
+}
+let currentDifficulty = readDifficulty();
+function applyDifficulty(d) {
+  if (!DIFFICULTIES.has(d)) d = 'advanced';
+  currentDifficulty = d;
+  LAYOUT = normalizeLayout(buildLayoutFor(d));
+  ({ cols: TILE_COLS, rows: TILE_ROWS } = layoutExtents(LAYOUT));
+}
+// User-initiated level change: applies + persists. Backwards-compat: we
+// avoid writing the localStorage key passively at init so an existing
+// player who never opens the chooser keeps a clean localStorage.
+function chooseDifficulty(d) {
+  applyDifficulty(d);
+  writeDifficulty(currentDifficulty);
+}
 const IS_DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(globalThis.location.hostname)
             || globalThis.location.protocol === 'file:';
 
@@ -298,8 +442,19 @@ async function counterFetch(pathParts) {
 }
 
 function readPersonal() {
-  try { return JSON.parse(globalThis.localStorage.getItem(LS_STATS_KEY)) ?? {}; }
-  catch { return {}; }
+  try {
+    const p = JSON.parse(globalThis.localStorage.getItem(LS_STATS_KEY)) ?? {};
+    // One-time migration: legacy single bestTimeMs → bestTimes.advanced.
+    // Idempotent (skipped once bestTimes exists). The caller still needs
+    // to writePersonal() to commit the migrated shape; readPersonal()
+    // returning the migrated form means renders look right immediately,
+    // and the next bumpPersonal/recordWinTime will persist the cleanup.
+    if (p.bestTimeMs != null && !p.bestTimes) {
+      p.bestTimes = { advanced: p.bestTimeMs };
+      delete p.bestTimeMs;
+    }
+    return p;
+  } catch { return {}; }
 }
 function writePersonal(p) {
   try { globalThis.localStorage.setItem(LS_STATS_KEY, JSON.stringify(p)); } catch { /* quota / private-mode */ }
@@ -312,7 +467,9 @@ function bumpPersonal(kind) {
 }
 function recordWinTime(elapsedMs) {
   const p = readPersonal();
-  if (p.bestTimeMs == null || elapsedMs < p.bestTimeMs) p.bestTimeMs = elapsedMs;
+  p.bestTimes ??= {};
+  const prev = p.bestTimes[currentDifficulty];
+  if (prev == null || elapsedMs < prev) p.bestTimes[currentDifficulty] = elapsedMs;
   writePersonal(p);
 }
 
@@ -382,8 +539,11 @@ function renderAboutStats() {
     `Your plays: ${formatCount(p.launches ?? 0)}`,
     `Your wins: ${formatCount(p.wins ?? 0)}`,
   ];
-  if (p.bestTimeMs != null) personalBits.push(`Best time: ${formatDuration(p.bestTimeMs)}`);
-  const lastPlayLine = p.lastPlayedMs != null ? `Last play: ${formatRelative(p.lastPlayedMs)}` : '';
+  const best = p.bestTimes?.[currentDifficulty];
+  if (best != null) {
+    personalBits.push(`Best ${LEVEL_LABELS[currentDifficulty]}: ${formatDuration(best)}`);
+  }
+  const lastPlayLine = p.lastPlayedMs == null ? '' : `Last play: ${formatRelative(p.lastPlayedMs)}`;
   aboutStatsEl.innerHTML = `<div class="shared">${sharedLine}</div>`
     + `<div class="personal">${personalBits.join(' · ')}</div>`
     + (lastPlayLine ? `<div class="personal">${lastPlayLine}</div>` : '');
@@ -459,8 +619,10 @@ function shuffle(arr) {
 
 // ── Build tiles for a new game ──
 function buildTiles() {
+  const activeIds = new Set(activeLogoIds());
+  const activeLogos = LOGOS.filter(l => activeIds.has(l.id));
   const ids = [];
-  LOGOS.forEach(logo => { for (let i = 0; i < 4; i++) ids.push(logo.id); });
+  activeLogos.forEach(logo => { for (let i = 0; i < 4; i++) ids.push(logo.id); });
   const shuffled = shuffle(ids);
   tiles = LAYOUT.map((pos, i) => ({
     uid: i,
@@ -473,8 +635,12 @@ function buildTiles() {
 }
 
 // ── Constants ──
-const TILE_COLS = 15;    // x spans 0–14 (right head extends to x=14)
-const TILE_ROWS = 8;     // y spans 0–7
+// TILE_COLS / TILE_ROWS are derived per-layout via layoutExtents() and
+// reassigned by applyDifficulty(). MAX_Z stays constant — only Smarty Pants
+// reaches z=4, but the EDGE_W offset and TOP_SHIFT math is harmless for
+// unused layers.
+let TILE_COLS = 15;      // Smarty Pants default; reassigned by applyDifficulty()
+let TILE_ROWS = 8;       // Smarty Pants default; reassigned by applyDifficulty()
 const MAX_Z = 4;         // layers 0–4 (cap at z=4)
 const EDGE_W = 6;        // 3D depth offset per layer (px)
 // Board element overhead beyond TILE_COLS*tileW / TILE_ROWS*tileH. Only 2*EDGE_W
@@ -635,6 +801,7 @@ function render() {
   });
 
   pairsEl.textContent = matchedPairs;
+  if (pairsTotalEl) pairsTotalEl.textContent = LAYOUT.length / 2;
   tilesLeftEl.textContent = tiles.filter(t => !t.removed).length;
 }
 
@@ -812,6 +979,14 @@ function newGame() {
   updateTimerDisplay();
 }
 
+// ── Difficulty chooser ──
+function startNewGameAt(level) {
+  chooseDifficulty(level);
+  hideDifficultyModal();
+  buildGallery();   // refresh gallery to match new level's logo subset
+  newGame();
+}
+
 // ── Status ──
 function setStatus(msg) {
   statusEl.textContent = msg;
@@ -820,19 +995,29 @@ function setStatus(msg) {
 // ── Logo Gallery ──
 function buildGallery() {
   galleryGridEl.innerHTML = '';
-  [...LOGOS].sort((a, b) => a.name.localeCompare(b.name)).forEach(logo => {
-    const card = document.createElement('div');
-    card.className = 'gallery-card';
-    card.innerHTML = `${logo.svg}<span>${logo.name}</span>`;
-    galleryGridEl.appendChild(card);
-  });
+  const activeIds = new Set(activeLogoIds());
+  LOGOS.filter(l => activeIds.has(l.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .forEach(logo => {
+      const card = document.createElement('div');
+      card.className = 'gallery-card';
+      card.innerHTML = `${logo.svg}<span>${logo.name}</span>`;
+      galleryGridEl.appendChild(card);
+    });
 }
 
 function showGallery() {
-  // Size gallery SVGs to match in-game tile logo size
+  // Size gallery SVGs to match in-game tile logo size, capped so the icons
+  // never overflow their cards. Smaller layouts (Baby, Padawan) produce
+  // very large in-game tiles which would otherwise blow past the fixed
+  // grid columns. We also widen the grid columns to fit the icons
+  // (minmax adapts to the icon size + padding).
+  const ICON_CAP = 130;
   const { w, h } = calcTileSize();
-  const iconW = Math.round(w * 0.92);
-  const iconH = Math.round(h * 0.92);
+  const iconW = Math.min(Math.round(w * 0.92), ICON_CAP);
+  const iconH = Math.min(Math.round(h * 0.92), ICON_CAP);
+  const cardMinW = iconW + 22; // ~20px padding + 2px border
+  galleryGridEl.style.gridTemplateColumns = `repeat(auto-fill, minmax(${cardMinW}px, 1fr))`;
   galleryGridEl.querySelectorAll('svg').forEach(svg => {
     svg.style.width = iconW + 'px';
     svg.style.height = iconH + 'px';
@@ -875,6 +1060,34 @@ function showAbout() {
     document.addEventListener('click', aboutOutsideClick, true);
   }, 0);
 }
+
+// ── Difficulty modal wiring ──
+const difficultyModal = document.getElementById('difficultyModal');
+const difficultyContentEl = difficultyModal.querySelector('.difficulty-content');
+function difficultyOutsideClick(e) {
+  if (difficultyContentEl.contains(e.target)) return;
+  hideDifficultyModal();
+}
+function hideDifficultyModal() {
+  document.removeEventListener('click', difficultyOutsideClick, true);
+  difficultyModal.classList.add('hidden');
+}
+function showDifficultyModal() {
+  difficultyModal.querySelectorAll('[data-level]').forEach(b => {
+    b.classList.toggle('selected', b.dataset.level === currentDifficulty);
+  });
+  difficultyModal.classList.remove('hidden');
+  setTimeout(() => {
+    document.addEventListener('click', difficultyOutsideClick, true);
+  }, 0);
+}
+document.getElementById('btnNewLevel').addEventListener('click', (e) => {
+  e.stopPropagation();
+  showDifficultyModal();
+});
+difficultyModal.querySelectorAll('[data-level]').forEach(btn => {
+  btn.addEventListener('click', () => startNewGameAt(btn.dataset.level));
+});
 
 if (showTimerToggleEl) {
   showTimerToggleEl.addEventListener('change', () => {
@@ -920,6 +1133,7 @@ document.querySelector('.board-wrapper').addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     hideGallery();
+    hideDifficultyModal();
     winModal.classList.add('hidden');
     gameOverModal.classList.add('hidden');
     deselectTile();
@@ -978,6 +1192,9 @@ screen.orientation?.addEventListener?.('change', () => {
 });
 
 // ── Initialize (defer so flex layout is fully computed) ──
+// Sync LAYOUT/TILE_COLS/TILE_ROWS to the persisted level (no localStorage
+// write — that's what chooseDifficulty() is for).
+applyDifficulty(currentDifficulty);
 buildGallery();
 requestAnimationFrame(() => {
   newGame();
@@ -986,3 +1203,205 @@ requestAnimationFrame(() => {
   applyTimerVisibility();
   setInterval(updateTimerDisplay, 1000);
 });
+
+// ─── In-page validator (dev tool) ─────────────────────────────────────
+// Run via __validateLogo() in the console or load with ?validate=1.
+// Saves and restores all state it touches, then calls newGame() to leave
+// the live board clean.
+function _vAssert(results, label, ok, detail) {
+  results.push({ label, ok: !!ok, detail: detail ?? null });
+}
+function _vSummarize(name, results) {
+  return {
+    name,
+    passed: results.filter(r => r.ok).length,
+    failed: results.filter(r => !r.ok).length,
+    results,
+  };
+}
+
+function _vTestLogoSubsets() {
+  const r = [];
+  _vAssert(r, 'BEGINNER_LOGO_IDS has 11 ids', BEGINNER_LOGO_IDS.length === 11, `got ${BEGINNER_LOGO_IDS.length}`);
+  _vAssert(r, 'INTERMEDIATE_LOGO_IDS has 18 ids', INTERMEDIATE_LOGO_IDS.length === 18, `got ${INTERMEDIATE_LOGO_IDS.length}`);
+  _vAssert(r, 'LOGOS has 36 entries', LOGOS.length === 36, `got ${LOGOS.length}`);
+  const allIds = new Set(LOGOS.map(l => l.id));
+  const intSet = new Set(INTERMEDIATE_LOGO_IDS);
+  _vAssert(r, 'every Beginner id exists in LOGOS', BEGINNER_LOGO_IDS.every(id => allIds.has(id)));
+  _vAssert(r, 'every Intermediate id exists in LOGOS', INTERMEDIATE_LOGO_IDS.every(id => allIds.has(id)));
+  _vAssert(r, 'Beginner ⊆ Intermediate', BEGINNER_LOGO_IDS.every(id => intSet.has(id)));
+  _vAssert(r, 'no duplicates in BEGINNER_LOGO_IDS', new Set(BEGINNER_LOGO_IDS).size === BEGINNER_LOGO_IDS.length);
+  _vAssert(r, 'no duplicates in INTERMEDIATE_LOGO_IDS', intSet.size === INTERMEDIATE_LOGO_IDS.length);
+  return _vSummarize('testLogoSubsets', r);
+}
+
+function _vTestLayouts() {
+  const r = [];
+  // Extents are post-normalize (what the runtime uses for TILE_COLS/TILE_ROWS).
+  const cases = [
+    { level: 'beginner',     count: 44,  cols: 9,  rows: 6 },
+    { level: 'intermediate', count: 72,  cols: 13, rows: 6 },
+    { level: 'advanced',     count: 144, cols: 15, rows: 8 },
+  ];
+  for (const c of cases) {
+    const layout = normalizeLayout(buildLayoutFor(c.level));
+    _vAssert(r, `${c.level} has ${c.count} tiles`, layout.length === c.count, `got ${layout.length}`);
+    _vAssert(r, `${c.level} count divisible by 4`, layout.length % 4 === 0);
+    _vAssert(r, `${c.level} all z within [0, ${MAX_Z}]`, layout.every(p => p.z >= 0 && p.z <= MAX_Z));
+    const ext = layoutExtents(layout);
+    _vAssert(r, `${c.level} extents are ${c.cols}×${c.rows}`,
+      ext.cols === c.cols && ext.rows === c.rows,
+      `got ${ext.cols}×${ext.rows}`);
+    const seen = new Set();
+    let dup = false;
+    for (const p of layout) {
+      const key = `${p.x},${p.y},${p.z}`;
+      if (seen.has(key)) { dup = true; break; }
+      seen.add(key);
+    }
+    _vAssert(r, `${c.level} has no duplicate (x, y, z)`, !dup);
+  }
+  return _vSummarize('testLayouts', r);
+}
+
+function _vTestFreeTileLogic() {
+  const r = [];
+  for (const level of ['beginner', 'intermediate', 'advanced']) {
+    const layout = normalizeLayout(buildLayoutFor(level));
+    tiles = layout.map((pos, i) => ({
+      uid: i, logoId: 'test', x: pos.x, y: pos.y, z: pos.z, removed: false,
+    }));
+    const free = computeFree();
+    const maxZ = Math.max(...layout.map(p => p.z));
+    const cap = tiles.find(t => t.z === maxZ);
+    _vAssert(r, `${level} cap is free at start`, free[cap.uid] === true);
+    const underCap = tiles.filter(t =>
+      t.z === cap.z - 1 && Math.abs(t.x - cap.x) < 1 && Math.abs(t.y - cap.y) < 1
+    );
+    _vAssert(r, `${level} all tiles directly under cap are blocked at start`,
+      underCap.length > 0 && underCap.every(t => free[t.uid] === false));
+  }
+  // Half-grid wing free at start (Beginner left wing — post-normalize coords).
+  // Beginner pre-shift wing was (3, 3.5, 0); minX=3, minY=1 → (0, 2.5, 0).
+  {
+    const layout = normalizeLayout(buildBeginnerLayout());
+    tiles = layout.map((pos, i) => ({
+      uid: i, logoId: 'test', x: pos.x, y: pos.y, z: pos.z, removed: false,
+    }));
+    const wing = tiles.find(t => t.x === 0 && t.y === 2.5 && t.z === 0);
+    const free = computeFree();
+    _vAssert(r, 'beginner left wing (0, 2.5, 0) is free at start', wing && free[wing.uid] === true);
+  }
+  // Blocked on both sides, not covered. Pre-shift (5, 2, 0) → (2, 1, 0).
+  {
+    const layout = normalizeLayout(buildBeginnerLayout());
+    tiles = layout.map((pos, i) => ({
+      uid: i, logoId: 'test', x: pos.x, y: pos.y, z: pos.z, removed: false,
+    }));
+    const blocked = tiles.find(t => t.x === 2 && t.y === 1 && t.z === 0);
+    const free = computeFree();
+    _vAssert(r, 'beginner (2, 1, 0) blocked left+right is not free',
+      blocked && free[blocked.uid] === false);
+  }
+  return _vSummarize('testFreeTileLogic', r);
+}
+
+function _vTestMigration() {
+  const r = [];
+  globalThis.localStorage.setItem(LS_STATS_KEY, JSON.stringify({
+    launches: 5, wins: 2, bestTimeMs: 600000, lastPlayedMs: 1000000000000,
+  }));
+  let p = readPersonal();
+  _vAssert(r, 'legacy bestTimeMs migrates to bestTimes.advanced',
+    p.bestTimes?.advanced === 600000 && p.bestTimeMs == null);
+  globalThis.localStorage.removeItem(LS_STATS_KEY);
+  p = readPersonal();
+  _vAssert(r, 'empty storage returns empty object', Object.keys(p).length === 0);
+  globalThis.localStorage.setItem(LS_STATS_KEY, JSON.stringify({ bestTimes: { advanced: 600000 } }));
+  p = readPersonal();
+  _vAssert(r, 'already-migrated is idempotent',
+    p.bestTimes?.advanced === 600000 && p.bestTimeMs === undefined);
+  globalThis.localStorage.setItem(LS_STATS_KEY, 'not json');
+  p = readPersonal();
+  _vAssert(r, 'corrupted JSON returns empty object', Object.keys(p).length === 0);
+  globalThis.localStorage.setItem(LS_DIFFICULTY_KEY, 'easy');
+  _vAssert(r, 'invalid difficulty falls back to advanced', readDifficulty() === 'advanced');
+  return _vSummarize('testMigration', r);
+}
+
+function _vTestLevelTransitions() {
+  const r = [];
+  const cases = [
+    { level: 'beginner',     count: 44,  cols: 9  },
+    { level: 'intermediate', count: 72,  cols: 13 },
+    { level: 'advanced',     count: 144, cols: 15 },
+  ];
+  for (const c of cases) {
+    applyDifficulty(c.level);
+    _vAssert(r, `applyDifficulty(${c.level}): currentDifficulty matches`, currentDifficulty === c.level);
+    _vAssert(r, `applyDifficulty(${c.level}): LAYOUT.length === ${c.count}`, LAYOUT.length === c.count);
+    _vAssert(r, `applyDifficulty(${c.level}): TILE_COLS === ${c.cols}`, TILE_COLS === c.cols);
+  }
+  globalThis.localStorage.setItem(LS_STATS_KEY, JSON.stringify({}));
+  applyDifficulty('beginner');
+  recordWinTime(30000);
+  let p = readPersonal();
+  _vAssert(r, 'recordWinTime writes to beginner slot only',
+    p.bestTimes?.beginner === 30000 && p.bestTimes?.advanced === undefined);
+  recordWinTime(60000);
+  p = readPersonal();
+  _vAssert(r, 'recordWinTime ignores a worse time', p.bestTimes?.beginner === 30000);
+  recordWinTime(20000);
+  p = readPersonal();
+  _vAssert(r, 'recordWinTime updates with a better time', p.bestTimes?.beginner === 20000);
+  applyDifficulty('advanced');
+  recordWinTime(900000);
+  p = readPersonal();
+  _vAssert(r, 'level switch preserves other slot',
+    p.bestTimes?.beginner === 20000 && p.bestTimes?.advanced === 900000);
+  return _vSummarize('testLevelTransitions', r);
+}
+
+globalThis.__validateLogo = function __validateLogo() {
+  const saved = {
+    currentDifficulty,
+    statsLs: globalThis.localStorage.getItem(LS_STATS_KEY),
+    diffLs:  globalThis.localStorage.getItem(LS_DIFFICULTY_KEY),
+  };
+  const groups = [];
+  try {
+    groups.push(_vTestLogoSubsets());
+    groups.push(_vTestLayouts());
+    groups.push(_vTestFreeTileLogic());
+    groups.push(_vTestMigration());
+    groups.push(_vTestLevelTransitions());
+  } finally {
+    if (saved.statsLs == null) globalThis.localStorage.removeItem(LS_STATS_KEY);
+    else globalThis.localStorage.setItem(LS_STATS_KEY, saved.statsLs);
+    if (saved.diffLs == null) globalThis.localStorage.removeItem(LS_DIFFICULTY_KEY);
+    else globalThis.localStorage.setItem(LS_DIFFICULTY_KEY, saved.diffLs);
+    applyDifficulty(saved.currentDifficulty);
+    newGame();
+  }
+  const passed = groups.reduce((n, g) => n + g.passed, 0);
+  const failed = groups.reduce((n, g) => n + g.failed, 0);
+  console.group(`Logo validator (${groups.length} groups, ${passed + failed} assertions)`);
+  for (const g of groups) {
+    const ok = g.failed === 0;
+    const fn = ok ? console.groupCollapsed : console.group;
+    fn.call(console, `${ok ? '✓' : '✗'} ${g.name}: ${g.passed}/${g.passed + g.failed} passed`);
+    for (const res of g.results) {
+      const mark = res.ok ? '✓' : '✗';
+      const tail = res.detail ? ` — ${res.detail}` : '';
+      console.log(`${mark} ${res.label}${tail}`);
+    }
+    console.groupEnd();
+  }
+  console.log(`Summary: ${passed} passed, ${failed} failed`);
+  console.groupEnd();
+  return { groups, passed, failed };
+};
+
+if (globalThis.location?.search?.includes('validate=1')) {
+  requestAnimationFrame(() => globalThis.__validateLogo());
+}
