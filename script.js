@@ -786,6 +786,10 @@ function doShuffle() {
   undoStack = [];
   setStatus('Tiles shuffled! New arrangements available.');
   render();
+  // Shuffle only permutes logoIds across active tiles; if the few free
+  // positions all hold distinct logos the post-shuffle state can still be
+  // unsolvable, so re-check rather than silently leaving the player stuck.
+  checkEndConditions();
 }
 
 // ── New Game ──
