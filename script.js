@@ -188,7 +188,7 @@ const LOGOS = [
 // ── Difficulty levels ──
 // Internal IDs (beginner/intermediate/advanced) are stable; display labels live in LEVEL_LABELS.
 const LEVEL_LABELS = {
-  beginner: 'Baby',
+  beginner: 'Newb',
   intermediate: 'Padawan',
   advanced: 'Smarty Pants',
 };
@@ -310,7 +310,7 @@ function buildIntermediateLayout() {
   return positions; // 48 + 16 + 4 + 3 + 1 = 72
 }
 
-// Baby — 44 tiles. Smallest turtle, 3 layers.
+// Newb — 44 tiles. Smallest turtle, 3 layers.
 function buildBeginnerLayout() {
   const positions = [];
   expandRows(positions, [
@@ -352,7 +352,7 @@ function layoutExtents(layout) {
 }
 
 // Shift a layout so its bounding box starts at (0, 0). Without this, smaller
-// layouts (Baby, Padawan) leave dead space on the top/left of the board
+// layouts (Newb, Padawan) leave dead space on the top/left of the board
 // element, biasing tiles toward the bottom-right of the wrapper and
 // shrinking them via TILE_COLS/TILE_ROWS that include the dead space.
 // Relative positions are preserved, so computeFree() / render() are unaffected.
@@ -1008,7 +1008,7 @@ function buildGallery() {
 
 function showGallery() {
   // Size gallery SVGs to match in-game tile logo size, capped so the icons
-  // never overflow their cards. Smaller layouts (Baby, Padawan) produce
+  // never overflow their cards. Smaller layouts (Newb, Padawan) produce
   // very large in-game tiles which would otherwise blow past the fixed
   // grid columns. We also widen the grid columns to fit the icons
   // (minmax adapts to the icon size + padding).
