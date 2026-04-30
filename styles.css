@@ -366,12 +366,24 @@ html, body {
   font-size: 0.8rem;
   font-style: italic;
 }
+.modal-content .win-level {
+  margin: 0.5rem 0;
+  color: #1a5c30;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
 .modal-content .win-time {
-  margin: 0.25rem 0 1rem;
+  margin: 0.5rem 0;
   color: #444;
   font-size: 0.95rem;
 }
 .modal-content .win-time strong { color: #222; }
+.modal-content .win-shuffles {
+  margin: 0.5rem 0 1.2rem;
+  color: #444;
+  font-size: 0.95rem;
+}
+.modal-content .win-shuffles strong { color: #222; }
 .modal-content h2 { margin-bottom: 0.5rem; color: #1a5c30; }
 .modal-content h2.game-over-heading { color: #a83232; }
 .modal-content p  { margin-bottom: 1.2rem; color: #555; }
@@ -389,6 +401,103 @@ html, body {
   cursor: pointer;
 }
 .modal-content button:hover { background: #245a3a; }
+
+/* ─── Win-modal animations ─── */
+#winModal .modal-content { position: relative; z-index: 1; }
+.confetti-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 800px;
+}
+.confetti-piece {
+  position: absolute;
+  top: -10vh;
+  border-radius: 1px;
+  box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.18);
+  animation: confettiFall linear forwards;
+  will-change: transform, opacity;
+  transform-style: preserve-3d;
+}
+.confetti-piece.shape-circle { border-radius: 50%; }
+.confetti-piece.shape-ribbon { border-radius: 1.5px; }
+.confetti-piece.motion-flip { animation-name: confettiFlip; }
+.confetti-piece.motion-tumble { animation-name: confettiTumble; }
+@keyframes confettiFall {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translate(var(--sway, 0px), 110vh) rotate(720deg); opacity: 0; }
+}
+@keyframes confettiFlip {
+  0%   { transform: translate(0, 0) rotateZ(0deg) rotateX(0deg); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translate(var(--sway, 0px), 110vh) rotateZ(360deg) rotateX(1080deg); opacity: 0; }
+}
+@keyframes confettiTumble {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  50%  { transform: translate(calc(var(--sway, 0px) * 0.4), 55vh) rotate(540deg); }
+  85%  { opacity: 1; }
+  100% { transform: translate(var(--sway, 0px), 110vh) rotate(1080deg); opacity: 0; }
+}
+.win-trophy {
+  width: 78px;
+  height: 78px;
+  display: block;
+  margin: 0 auto 0.4rem;
+  filter: drop-shadow(0 4px 8px rgba(184, 134, 27, 0.4));
+}
+.win-trophy .sparkle {
+  animation: trophySparkle 2.2s ease-in-out infinite;
+}
+.win-trophy .sparkle.s1 { animation-delay: 0s; }
+.win-trophy .sparkle.s2 { animation-delay: 0.7s; }
+.win-trophy .sparkle.s3 { animation-delay: 1.4s; }
+@keyframes trophySparkle {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+@keyframes winModalIn {
+  0%   { transform: scale(0.6) translateY(-24px); opacity: 0; }
+  60%  { transform: scale(1.05) translateY(2px);  opacity: 1; }
+  100% { transform: scale(1) translateY(0);       opacity: 1; }
+}
+@keyframes winLineIn {
+  0%   { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0);   opacity: 1; }
+}
+@keyframes trophyPop {
+  0%   { transform: scale(0) rotate(-180deg); opacity: 0; }
+  60%  { transform: scale(1.18) rotate(12deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0);       opacity: 1; }
+}
+#winModal:not(.hidden) .modal-content {
+  animation: winModalIn 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+#winModal:not(.hidden) .win-trophy {
+  animation: trophyPop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms both;
+}
+#winModal:not(.hidden) .modal-content > h2,
+#winModal:not(.hidden) .modal-content > p,
+#winModal:not(.hidden) .modal-content > button {
+  animation: winLineIn 350ms ease-out both;
+}
+#winModal:not(.hidden) .modal-content > h2          { animation-delay: 100ms; }
+#winModal:not(.hidden) .modal-content > p:nth-of-type(1) { animation-delay: 200ms; } /* "You cleared all the tiles!" */
+#winModal:not(.hidden) .modal-content > .win-level  { animation-delay: 300ms; }
+#winModal:not(.hidden) .modal-content > .win-time   { animation-delay: 400ms; }
+#winModal:not(.hidden) .modal-content > .win-shuffles { animation-delay: 500ms; }
+#winModal:not(.hidden) .modal-content > button      { animation-delay: 600ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  #winModal .confetti-layer { display: none; }
+  #winModal .modal-content,
+  #winModal .win-trophy,
+  #winModal .win-trophy .sparkle,
+  #winModal .modal-content > h2,
+  #winModal .modal-content > p,
+  #winModal .modal-content > button { animation: none !important; }
+}
 
 /* ─── Difficulty chooser modal ─── */
 .modal-content.difficulty-content { padding: 1.75rem 2.25rem; max-width: 360px; }

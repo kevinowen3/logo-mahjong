@@ -377,6 +377,7 @@ let gameEndMs = null;
 let paused = false;
 let pausedAtMs = null;
 let playCountedThisGame = false;
+let shuffleCount = 0;
 
 // DOM refs
 const boardEl = document.getElementById('board');
@@ -390,6 +391,9 @@ const winModal = document.getElementById('winModal');
 const gameOverModal = document.getElementById('gameOverModal');
 const aboutStatsEl = document.getElementById('aboutStats');
 const winTimeEl = document.querySelector('#winTime strong');
+const winLevelEl = document.getElementById('winLevel');
+const winShufflesEl = document.getElementById('winShuffles');
+const winConfettiEl = document.getElementById('winConfetti');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const showTimerToggleEl = document.getElementById('showTimerToggle');
 
@@ -512,6 +516,110 @@ function formatDuration(ms) {
   if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
   if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
   return `${s}s`;
+}
+
+// ── Win-modal animation helpers ──
+const CONFETTI_PALETTE = ['#F25022', '#00A4EF', '#7FBA00', '#FFB900'];
+const CONFETTI_COUNT = 100;
+let countTimeFrameId = null;
+let countShufflesFrameId = null;
+let countStartTimeoutId = null;
+
+function prefersReducedMotion() {
+  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+function spawnConfetti(layer, count = CONFETTI_COUNT) {
+  if (!layer || prefersReducedMotion()) return;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    const shapeRoll = Math.random();
+    let shapeClass = '';
+    let w, h;
+    if (shapeRoll < 0.22) {
+      // Round dot
+      shapeClass = ' shape-circle';
+      const size = 5 + Math.random() * 5;
+      w = h = size;
+    } else if (shapeRoll < 0.5) {
+      // Long thin ribbon (paper streamer)
+      shapeClass = ' shape-ribbon';
+      w = 3 + Math.random() * 1.5;
+      h = 11 + Math.random() * 9;
+    } else {
+      // Paper square / rectangle
+      w = 5 + Math.random() * 4;
+      h = w * (0.8 + Math.random() * 0.6);
+    }
+    const motionRoll = Math.random();
+    const motionClass = motionRoll < 0.55 ? '' : (motionRoll < 0.8 ? ' motion-flip' : ' motion-tumble');
+    p.className = `confetti-piece${shapeClass}${motionClass}`;
+    const sway = (Math.random() - 0.5) * 280;
+    p.style.left = `${Math.random() * 100}%`;
+    p.style.width = `${w.toFixed(1)}px`;
+    p.style.height = `${h.toFixed(1)}px`;
+    p.style.background = CONFETTI_PALETTE[Math.floor(Math.random() * CONFETTI_PALETTE.length)];
+    p.style.animationDuration = `${(2 + Math.random() * 2.2).toFixed(2)}s`;
+    p.style.animationDelay = `${(Math.random() * 0.7).toFixed(2)}s`;
+    p.style.setProperty('--sway', `${sway.toFixed(0)}px`);
+    frag.appendChild(p);
+  }
+  layer.appendChild(frag);
+}
+
+function clearConfetti(layer) {
+  if (!layer) return;
+  layer.replaceChildren();
+}
+
+function cancelWinAnimations() {
+  if (countTimeFrameId !== null) { cancelAnimationFrame(countTimeFrameId); countTimeFrameId = null; }
+  if (countShufflesFrameId !== null) { cancelAnimationFrame(countShufflesFrameId); countShufflesFrameId = null; }
+  if (countStartTimeoutId !== null) { clearTimeout(countStartTimeoutId); countStartTimeoutId = null; }
+  clearConfetti(winConfettiEl);
+}
+
+function animateCount(el, fromVal, toVal, durationMs, formatter, onFrameId) {
+  if (!el) return;
+  if (prefersReducedMotion() || durationMs <= 0 || fromVal === toVal) {
+    el.textContent = formatter(toVal);
+    return;
+  }
+  const start = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / durationMs);
+    const v = fromVal + (toVal - fromVal) * easeOutCubic(t);
+    el.textContent = formatter(v);
+    if (t < 1) {
+      onFrameId(requestAnimationFrame(tick));
+    } else {
+      el.textContent = formatter(toVal);
+      onFrameId(null);
+    }
+  };
+  onFrameId(requestAnimationFrame(tick));
+}
+
+function showWinModal({ levelLabel, elapsedMs, shuffles }) {
+  cancelWinAnimations();
+  if (winLevelEl) winLevelEl.textContent = levelLabel;
+  if (winTimeEl) winTimeEl.textContent = formatDuration(0);
+  if (winShufflesEl) winShufflesEl.textContent = '0';
+  winModal.classList.remove('hidden');
+  spawnConfetti(winConfettiEl);
+  countStartTimeoutId = setTimeout(() => {
+    countStartTimeoutId = null;
+    animateCount(winTimeEl, 0, elapsedMs, 800, formatDuration, (id) => { countTimeFrameId = id; });
+    animateCount(winShufflesEl, 0, shuffles, 600, (v) => String(Math.round(v)), (id) => { countShufflesFrameId = id; });
+  }, 300);
+}
+
+function hideWinModal() {
+  cancelWinAnimations();
+  winModal.classList.add('hidden');
 }
 
 function formatRelative(ms) {
@@ -889,9 +997,14 @@ function checkEndConditions() {
     const elapsedMs = gameEndMs - gameStartMs;
     recordWinTime(elapsedMs);
     bumpWins();
-    if (winTimeEl) winTimeEl.textContent = formatDuration(elapsedMs);
     updateTimerDisplay();
-    setTimeout(() => winModal.classList.remove('hidden'), 400);
+    const finalElapsedMs = elapsedMs;
+    const finalShuffles = shuffleCount;
+    setTimeout(() => showWinModal({
+      levelLabel: LEVEL_LABELS[currentDifficulty],
+      elapsedMs: finalElapsedMs,
+      shuffles: finalShuffles,
+    }), 400);
     return;
   }
   const pairs = findFreePairs();
@@ -951,6 +1064,7 @@ function doShuffle() {
   active.forEach((t, i) => { t.logoId = logoIds[i]; });
   selectedId = null;
   undoStack = [];
+  shuffleCount++;
   setStatus('Tiles shuffled! New arrangements available.');
   render();
   // Shuffle only permutes logoIds across active tiles; if the few free
@@ -962,7 +1076,7 @@ function doShuffle() {
 // ── New Game ──
 function newGame() {
   hintPair = null; hintIndex = 0;
-  winModal.classList.add('hidden');
+  hideWinModal();
   gameOverModal.classList.add('hidden');
   matchedPairs = 0;
   undoStack = [];
@@ -972,7 +1086,10 @@ function newGame() {
   paused = false;
   pausedAtMs = null;
   playCountedThisGame = false;
+  shuffleCount = 0;
   if (winTimeEl) winTimeEl.textContent = '—';
+  if (winShufflesEl) winShufflesEl.textContent = '0';
+  if (winLevelEl) winLevelEl.textContent = LEVEL_LABELS[currentDifficulty];
   buildTiles();
   setStatus('New game started. Click a free tile to begin.');
   render();
@@ -1098,10 +1215,33 @@ if (showTimerToggleEl) {
 if (timerDisplayEl) {
   timerDisplayEl.addEventListener('click', toggleTimerPause);
 }
+// Plausible win-time ranges per level (ms) — used only by the Shift+Click test harness.
+const WIN_TIME_TEST_RANGES_MS = {
+  beginner:     [ 90 * 1000,  4 * 60 * 1000],
+  intermediate: [180 * 1000,  8 * 60 * 1000],
+  advanced:    [ 8 * 60 * 1000, 20 * 60 * 1000],
+};
+function randomReasonableWinMs(level) {
+  const [lo, hi] = WIN_TIME_TEST_RANGES_MS[level] || WIN_TIME_TEST_RANGES_MS.advanced;
+  return Math.floor(lo + Math.random() * (hi - lo));
+}
+// Plausible shuffle counts per level for the Shift+Click test harness. Most real
+// wins use 0 shuffles, so square the random draw to bias toward the low end.
+const WIN_SHUFFLES_TEST_MAX = { beginner: 2, intermediate: 3, advanced: 5 };
+function randomReasonableShuffles(level) {
+  const max = WIN_SHUFFLES_TEST_MAX[level] ?? WIN_SHUFFLES_TEST_MAX.advanced;
+  const r = Math.random();
+  return Math.floor(r * r * (max + 1));
+}
+
 document.getElementById('gameTitle').addEventListener('click', (e) => {
   e.stopPropagation();
   if (e.shiftKey) {
-    winModal.classList.remove('hidden');
+    showWinModal({
+      levelLabel: LEVEL_LABELS[currentDifficulty],
+      elapsedMs: randomReasonableWinMs(currentDifficulty),
+      shuffles: randomReasonableShuffles(currentDifficulty),
+    });
   } else if (e.ctrlKey) {
     gameOverModal.classList.remove('hidden');
   } else {
@@ -1134,7 +1274,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     hideGallery();
     hideDifficultyModal();
-    winModal.classList.add('hidden');
+    hideWinModal();
     gameOverModal.classList.add('hidden');
     deselectTile();
   }

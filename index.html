@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Logo – Mahjong Solitaire</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=17">
+  <link rel="stylesheet" href="styles.css?v=22">
 </head>
 <body>
   <div id="app">
@@ -70,7 +70,7 @@
       <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
       <p>Written by Kevin Owen</p>
       <p>with help from Claude Code</p>
-      <p class="about-date">Date: 27 Apr 2026</p>
+      <p class="about-date">Date: 30 Apr 2026</p>
       <label class="about-toggle"><input type="checkbox" id="showTimerToggle"> Show elapsed time during play</label>
       <p class="about-hint">To pause the timer, click on the elapsed time displayed.</p>
       <div class="about-stats" id="aboutStats"></div>
@@ -78,10 +78,45 @@
   </div>
 
   <div id="winModal" class="modal-overlay hidden">
+    <div class="confetti-layer" id="winConfetti" aria-hidden="true"></div>
     <div class="modal-content">
+      <svg class="win-trophy" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient id="trophyGold" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#fff5c2"/>
+            <stop offset="35%"  stop-color="#f7c948"/>
+            <stop offset="100%" stop-color="#a07215"/>
+          </linearGradient>
+          <linearGradient id="trophyBase" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#e2b03a"/>
+            <stop offset="100%" stop-color="#7a5210"/>
+          </linearGradient>
+          <radialGradient id="trophyShine" cx="0.32" cy="0.22" r="0.55">
+            <stop offset="0%"   stop-color="rgba(255,255,255,0.85)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+          </radialGradient>
+        </defs>
+        <g class="trophy-sparkles" fill="#fff8d8" stroke="#fff8d8" stroke-width="0.4">
+          <path class="sparkle s1" d="M14 16 l1.6 3.2 3.2 1.6 -3.2 1.6 -1.6 3.2 -1.6 -3.2 -3.2 -1.6 3.2 -1.6 z"/>
+          <path class="sparkle s2" d="M84 12 l1.1 2.2 2.2 1.1 -2.2 1.1 -1.1 2.2 -1.1 -2.2 -2.2 -1.1 2.2 -1.1 z"/>
+          <path class="sparkle s3" d="M88 38 l0.9 1.8 1.8 0.9 -1.8 0.9 -0.9 1.8 -0.9 -1.8 -1.8 -0.9 1.8 -0.9 z"/>
+        </g>
+        <path d="M 22 26 C 6 28, 6 52, 26 52" fill="none" stroke="url(#trophyGold)" stroke-width="5" stroke-linecap="round"/>
+        <path d="M 78 26 C 94 28, 94 52, 74 52" fill="none" stroke="url(#trophyGold)" stroke-width="5" stroke-linecap="round"/>
+        <path d="M 22 22 Q 22 50, 36 60 L 64 60 Q 78 50, 78 22 Z" fill="url(#trophyGold)" stroke="#7a5210" stroke-width="1.5"/>
+        <ellipse cx="50" cy="22" rx="28" ry="3.6" fill="#fff5c2" stroke="#7a5210" stroke-width="1.2"/>
+        <ellipse cx="38" cy="34" rx="6" ry="13" fill="url(#trophyShine)"/>
+        <path d="M50 30 L52.6 38 L61 38 L54 43.2 L56.6 51 L50 46 L43.4 51 L46 43.2 L39 38 L47.4 38 Z" fill="#fff8d8" stroke="#7a5210" stroke-width="0.7" opacity="0.95"/>
+        <rect x="44" y="60" width="12" height="10" fill="url(#trophyGold)" stroke="#7a5210" stroke-width="1"/>
+        <path d="M 36 70 L 64 70 L 70 78 L 30 78 Z" fill="url(#trophyBase)" stroke="#7a5210" stroke-width="1"/>
+        <rect x="26" y="78" width="48" height="9" rx="1.2" fill="url(#trophyBase)" stroke="#7a5210" stroke-width="1"/>
+        <rect x="27.5" y="79" width="45" height="1.2" fill="#fff8d8" opacity="0.55"/>
+      </svg>
       <h2>Congratulations!</h2>
       <p>You cleared all the tiles!</p>
+      <p class="win-level">Level: <span id="winLevel">&mdash;</span></p>
       <p class="win-time" id="winTime">Finished in <strong>&mdash;</strong></p>
+      <p class="win-shuffles">Shuffles: <strong id="winShuffles">0</strong></p>
       <button id="btnNewAfterWin">Play Again</button>
     </div>
   </div>
@@ -98,6 +133,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=18"></script>
+  <script src="script.js?v=22"></script>
 </body>
 </html>
