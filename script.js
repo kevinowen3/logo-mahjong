@@ -378,6 +378,7 @@ let paused = false;
 let pausedAtMs = null;
 let playCountedThisGame = false;
 let shuffleCount = 0;
+let hintCount = 0;
 
 // DOM refs
 const boardEl = document.getElementById('board');
@@ -393,6 +394,7 @@ const aboutStatsEl = document.getElementById('aboutStats');
 const winTimeEl = document.querySelector('#winTime strong');
 const winLevelEl = document.getElementById('winLevel');
 const winShufflesEl = document.getElementById('winShuffles');
+const winHintsEl = document.getElementById('winHints');
 const winConfettiEl = document.getElementById('winConfetti');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const showTimerToggleEl = document.getElementById('showTimerToggle');
@@ -523,6 +525,7 @@ const CONFETTI_PALETTE = ['#F25022', '#00A4EF', '#7FBA00', '#FFB900'];
 const CONFETTI_COUNT = 100;
 let countTimeFrameId = null;
 let countShufflesFrameId = null;
+let countHintsFrameId = null;
 let countStartTimeoutId = null;
 
 function prefersReducedMotion() {
@@ -578,6 +581,7 @@ function clearConfetti(layer) {
 function cancelWinAnimations() {
   if (countTimeFrameId !== null) { cancelAnimationFrame(countTimeFrameId); countTimeFrameId = null; }
   if (countShufflesFrameId !== null) { cancelAnimationFrame(countShufflesFrameId); countShufflesFrameId = null; }
+  if (countHintsFrameId !== null) { cancelAnimationFrame(countHintsFrameId); countHintsFrameId = null; }
   if (countStartTimeoutId !== null) { clearTimeout(countStartTimeoutId); countStartTimeoutId = null; }
   clearConfetti(winConfettiEl);
 }
@@ -603,17 +607,20 @@ function animateCount(el, fromVal, toVal, durationMs, formatter, onFrameId) {
   onFrameId(requestAnimationFrame(tick));
 }
 
-function showWinModal({ levelLabel, elapsedMs, shuffles }) {
+function showWinModal({ levelLabel, elapsedMs, shuffles, hints }) {
   cancelWinAnimations();
   if (winLevelEl) winLevelEl.textContent = levelLabel;
   if (winTimeEl) winTimeEl.textContent = formatDuration(0);
   if (winShufflesEl) winShufflesEl.textContent = '0';
+  if (winHintsEl) winHintsEl.textContent = '0';
   winModal.classList.remove('hidden');
   spawnConfetti(winConfettiEl);
   countStartTimeoutId = setTimeout(() => {
     countStartTimeoutId = null;
+    const intFmt = (v) => String(Math.round(v));
     animateCount(winTimeEl, 0, elapsedMs, 800, formatDuration, (id) => { countTimeFrameId = id; });
-    animateCount(winShufflesEl, 0, shuffles, 600, (v) => String(Math.round(v)), (id) => { countShufflesFrameId = id; });
+    animateCount(winShufflesEl, 0, shuffles, 600, intFmt, (id) => { countShufflesFrameId = id; });
+    animateCount(winHintsEl, 0, hints, 600, intFmt, (id) => { countHintsFrameId = id; });
   }, 300);
 }
 
@@ -1000,10 +1007,12 @@ function checkEndConditions() {
     updateTimerDisplay();
     const finalElapsedMs = elapsedMs;
     const finalShuffles = shuffleCount;
+    const finalHints = hintCount;
     setTimeout(() => showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: finalElapsedMs,
       shuffles: finalShuffles,
+      hints: finalHints,
     }), 400);
     return;
   }
@@ -1031,6 +1040,7 @@ function doHint() {
   const [a, b] = pairs[hintIndex];
   hintPair = [a.uid, b.uid];
   hintIndex++;
+  hintCount++;
   const logo = LOGOS.find(l => l.id === a.logoId);
   setStatus(`Hint ${hintIndex} of ${pairs.length}: ${logo.name}. Click a highlighted tile to match, or any other tile to dismiss.`);
   render();
@@ -1087,8 +1097,10 @@ function newGame() {
   pausedAtMs = null;
   playCountedThisGame = false;
   shuffleCount = 0;
+  hintCount = 0;
   if (winTimeEl) winTimeEl.textContent = '—';
   if (winShufflesEl) winShufflesEl.textContent = '0';
+  if (winHintsEl) winHintsEl.textContent = '0';
   if (winLevelEl) winLevelEl.textContent = LEVEL_LABELS[currentDifficulty];
   buildTiles();
   setStatus('New game started. Click a free tile to begin.');
@@ -1233,6 +1245,14 @@ function randomReasonableShuffles(level) {
   const r = Math.random();
   return Math.floor(r * r * (max + 1));
 }
+// Same r*r low-bias trick for hints. Padded a bit higher than shuffles since
+// hints are cheaper to use repeatedly and bigger boards reward more peeking.
+const WIN_HINTS_TEST_MAX = { beginner: 3, intermediate: 5, advanced: 8 };
+function randomReasonableHints(level) {
+  const max = WIN_HINTS_TEST_MAX[level] ?? WIN_HINTS_TEST_MAX.advanced;
+  const r = Math.random();
+  return Math.floor(r * r * (max + 1));
+}
 
 document.getElementById('gameTitle').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -1241,6 +1261,7 @@ document.getElementById('gameTitle').addEventListener('click', (e) => {
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: randomReasonableWinMs(currentDifficulty),
       shuffles: randomReasonableShuffles(currentDifficulty),
+      hints: randomReasonableHints(currentDifficulty),
     });
   } else if (e.ctrlKey) {
     gameOverModal.classList.remove('hidden');

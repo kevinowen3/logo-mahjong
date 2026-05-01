@@ -379,11 +379,17 @@ html, body {
 }
 .modal-content .win-time strong { color: #222; }
 .modal-content .win-shuffles {
-  margin: 0.5rem 0 1.2rem;
+  margin: 0.5rem 0;
   color: #444;
   font-size: 0.95rem;
 }
 .modal-content .win-shuffles strong { color: #222; }
+.modal-content .win-hints {
+  margin: 0.5rem 0 1.2rem;
+  color: #444;
+  font-size: 0.95rem;
+}
+.modal-content .win-hints strong { color: #222; }
 .modal-content h2 { margin-bottom: 0.5rem; color: #1a5c30; }
 .modal-content h2.game-over-heading { color: #a83232; }
 .modal-content p  { margin-bottom: 1.2rem; color: #555; }
@@ -487,7 +493,8 @@ html, body {
 #winModal:not(.hidden) .modal-content > .win-level  { animation-delay: 300ms; }
 #winModal:not(.hidden) .modal-content > .win-time   { animation-delay: 400ms; }
 #winModal:not(.hidden) .modal-content > .win-shuffles { animation-delay: 500ms; }
-#winModal:not(.hidden) .modal-content > button      { animation-delay: 600ms; }
+#winModal:not(.hidden) .modal-content > .win-hints  { animation-delay: 600ms; }
+#winModal:not(.hidden) .modal-content > button      { animation-delay: 700ms; }
 
 @media (prefers-reduced-motion: reduce) {
   #winModal .confetti-layer { display: none; }
