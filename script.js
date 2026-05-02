@@ -869,6 +869,7 @@ function render() {
   });
   const freePairCount = Object.values(freeCounts).filter(c => c >= 2).length;
   document.getElementById('freePairsCount').textContent = freePairCount;
+  document.getElementById('freePairsCountFs').textContent = freePairCount;
 
   // Board pixel dimensions — tight wrap around actual tile content + shadow pad.
   const boardW = Math.ceil(TILE_COLS * tileW + BOARD_PAD);
