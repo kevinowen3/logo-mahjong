@@ -6,9 +6,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>Logo – Mahjong Solitaire</title>
+  <title>Logo</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=24">
+  <link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
   <div id="app">
@@ -67,14 +67,61 @@
 
   <div id="aboutModal" class="modal-overlay hidden">
     <div class="modal-content about-content">
-      <h2>About Logo</h2>
-      <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
-      <p>Written by Kevin Owen</p>
-      <p>with help from Claude Code</p>
-      <p class="about-date">Date: 30 Apr 2026</p>
-      <label class="about-toggle"><input type="checkbox" id="showTimerToggle"> Show elapsed time during play</label>
-      <p class="about-hint">To pause the timer, click on the elapsed time displayed.</p>
-      <div class="about-stats" id="aboutStats"></div>
+      <div class="about-tabs" role="tablist">
+        <button class="about-tab-button" data-tab="help" role="tab" aria-selected="false">How to Play</button>
+        <button class="about-tab-button" data-tab="about" role="tab" aria-selected="false">About</button>
+      </div>
+
+      <div class="tab-panel help-panel" data-tab="help" role="tabpanel">
+        <h2>How to Play</h2>
+        <p class="help-intro">Logo is a solitaire matching game. Your goal is to clear the whole board by removing every tile.</p>
+
+        <h3>Basic move</h3>
+        <p>Click two tiles that show the <strong>same logo</strong> to remove them as a pair. Keep matching pairs until the board is empty &mdash; you win!</p>
+
+        <h3>Which tiles can you pick?</h3>
+        <p>A tile is &ldquo;free&rdquo; (selectable) only if:</p>
+        <ol>
+          <li>Nothing is stacked on top of it, <em>and</em></li>
+          <li>At least one side (left or right) is open.</li>
+        </ol>
+        <p>Tiles sandwiched between two neighbours are locked until you clear what&rsquo;s blocking them. Click a selected tile again, or click the empty board, to deselect.</p>
+
+        <h3>Toolbar helpers</h3>
+        <ul>
+          <li><strong>Hint</strong> &mdash; highlights a playable matching pair.</li>
+          <li><strong>Undo</strong> &mdash; takes back your last match.</li>
+          <li><strong>Shuffle</strong> &mdash; rearranges the remaining tiles when you&rsquo;re stuck.</li>
+          <li><strong>&#9654; New Game</strong> &mdash; the small triangle picks a difficulty; the main button starts a new game at your current level.</li>
+          <li><strong>Logos</strong> &mdash; browse the company marks in your current level.</li>
+        </ul>
+
+        <h3>Difficulty levels</h3>
+        <ul>
+          <li><strong>Newb</strong> &mdash; 44 tiles, gentle introduction.</li>
+          <li><strong>Padawan</strong> &mdash; 72 tiles, bigger board, more layers.</li>
+          <li><strong>Smarty Pants</strong> &mdash; 144 tiles, the classic turtle.</li>
+        </ul>
+
+        <h3>Tips</h3>
+        <ul>
+          <li>Work from the top down &mdash; high-layer tiles unlock everything below.</li>
+          <li>Edge tiles free up faster than buried middle ones.</li>
+          <li>Don&rsquo;t always grab the first match: if a logo has 4 tiles on the board and 2 are free, sometimes you&rsquo;d rather pair one with a different copy later.</li>
+          <li>Stuck? Use Hint or Shuffle.</li>
+        </ul>
+      </div>
+
+      <div class="tab-panel about-panel" data-tab="about" role="tabpanel">
+        <h2>About Logo</h2>
+        <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
+        <p>Written by Kevin Owen</p>
+        <p>with help from Claude Code</p>
+        <p class="about-date">Date: 30 Apr 2026</p>
+        <label class="about-toggle"><input type="checkbox" id="showTimerToggle"> Show elapsed time during play</label>
+        <p class="about-hint">To pause the timer, click on the elapsed time displayed.</p>
+        <div class="about-stats" id="aboutStats"></div>
+      </div>
     </div>
   </div>
 
@@ -135,6 +182,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=24"></script>
+  <script src="script.js?v=25"></script>
 </body>
 </html>

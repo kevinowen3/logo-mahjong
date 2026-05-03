@@ -1,7 +1,7 @@
 {
-  "name": "Logo Mahjong Solitaire",
-  "short_name": "Logo Mahjong",
-  "description": "Mahjong Solitaire with Tech Company Logos",
+  "name": "Logo",
+  "short_name": "Logo",
+  "description": "Solitaire with Tech Company Logos",
   "start_url": ".",
   "display": "fullscreen",
   "orientation": "landscape",

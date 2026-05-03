@@ -1173,6 +1173,7 @@ document.getElementById('btnNewGameAfterGameOver').addEventListener('click', new
 
 const aboutModal = document.getElementById('aboutModal');
 const aboutContentEl = aboutModal.querySelector('.about-content');
+const LS_SEEN_HELP_KEY = 'logo:seen-help';
 function aboutOutsideClick(e) {
   if (aboutContentEl.contains(e.target)) return;
   hideAbout();
@@ -1181,14 +1182,41 @@ function hideAbout() {
   document.removeEventListener('click', aboutOutsideClick, true);
   aboutModal.classList.add('hidden');
 }
-function showAbout() {
+function setActiveAboutTab(tab) {
+  aboutModal.querySelectorAll('.about-tab-button').forEach(btn => {
+    const active = btn.dataset.tab === tab;
+    btn.classList.toggle('selected', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  aboutModal.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.tab === tab);
+  });
+  // Reset scroll so a fresh tab opens at the top.
+  aboutContentEl.scrollTop = 0;
+}
+function showAbout(tab = 'about') {
   renderAboutStats();
   loadStatsForDisplay();
   syncTimerToggle();
+  setActiveAboutTab(tab);
   aboutModal.classList.remove('hidden');
   setTimeout(() => {
     document.addEventListener('click', aboutOutsideClick, true);
   }, 0);
+}
+aboutModal.querySelector('.about-tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.about-tab-button');
+  if (btn && btn.dataset.tab) setActiveAboutTab(btn.dataset.tab);
+});
+function maybeShowFirstVisitHelp() {
+  // First-visit auto-show: open the modal on the Help tab once, then mark seen
+  // so subsequent title-clicks default to the About tab. Wrapped in try/catch
+  // because private-browsing modes can throw on localStorage access.
+  try {
+    if (localStorage.getItem(LS_SEEN_HELP_KEY)) return;
+    localStorage.setItem(LS_SEEN_HELP_KEY, '1');
+    showAbout('help');
+  } catch {}
 }
 
 // ── Difficulty modal wiring ──
@@ -1364,6 +1392,7 @@ requestAnimationFrame(() => {
   syncTimerToggle();
   applyTimerVisibility();
   setInterval(updateTimerDisplay, 1000);
+  maybeShowFirstVisitHelp();
 });
 
 // ─── In-page validator (dev tool) ─────────────────────────────────────
