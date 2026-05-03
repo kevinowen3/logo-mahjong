@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   Logo – Mahjong Solitaire with Tech Company Logos
+   Logo – Solitaire with Tech Company Logos
    ═══════════════════════════════════════════════════ */
 
 // ── 36 Logo Definitions (glossy badge + professional Simple Icons paths) ──
