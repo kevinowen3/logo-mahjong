@@ -406,6 +406,7 @@ const COUNTER_KEYS = { launches: 'launches', wins: 'wins' };
 const LS_STATS_KEY = 'logo:personal-stats';
 const LS_TIMER_KEY = 'logo:show-timer';
 const LS_DIFFICULTY_KEY = 'logo:difficulty';
+const LS_SFX_KEY = 'logo:sfx-enabled';
 const DIFFICULTIES = new Set(['beginner', 'intermediate', 'advanced']);
 const PLAY_THRESHOLD_PAIRS = 3;
 
@@ -722,6 +723,145 @@ function syncTimerToggle() {
   if (showTimerToggleEl) showTimerToggleEl.checked = readShowTimer();
 }
 
+// ── Sound effects (Web Audio API, synthesized — no asset files) ──
+// Two short sine-based sounds: a soft click on tile selection and a two-note
+// chime on a confirmed match. Audio context is created lazily on the first
+// playback attempt; constructing inside a click handler satisfies mobile
+// autoplay policy. Mute pref persists in localStorage; defaults ON.
+let audioCtx = null;
+const sfxToggleEl = document.getElementById('sfxToggle');
+function readSfxEnabled() {
+  try { return globalThis.localStorage.getItem(LS_SFX_KEY) !== '0'; }
+  catch { return true; }
+}
+function writeSfxEnabled(on) {
+  try { globalThis.localStorage.setItem(LS_SFX_KEY, on ? '1' : '0'); } catch { /* private mode / quota */ }
+}
+function getOrCreateAudioCtx() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (!Ctx) return null;
+  try {
+    audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+function playClick() {
+  if (!readSfxEnabled()) return;
+  const ctx = getOrCreateAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 660;
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.12, now + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.09);
+}
+function playMatch() {
+  if (!readSfxEnabled()) return;
+  const ctx = getOrCreateAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const note = (freq, offset, duration) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const start = now + offset;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.16, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.01);
+  };
+  note(784, 0, 0.18);      // G5
+  note(1047, 0.09, 0.22);  // C6
+}
+// Triumphant win fanfare: a rising C-major pentatonic arpeggio (six notes,
+// 100 ms apart) cascading into a sustained C-major chord, with a soft C3
+// bass underneath for grounding. Each "bell" note stacks fundamental + 2nd
+// + 3rd harmonic sines, which produces a warm bell-like timbre rather than
+// the sterile feel of a pure sine. Pentatonic ascent means no dissonance
+// is possible; the major-chord resolution reads as "you did it!".
+// All synthesized — no asset files. ~2.5 s total.
+function playWinFanfare() {
+  if (!readSfxEnabled()) return;
+  const ctx = getOrCreateAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  function bell(freq, startOffset, decaySec, peakVol) {
+    const start = now + startOffset;
+    [
+      { mult: 1, vol: peakVol },
+      { mult: 2, vol: peakVol * 0.5 },
+      { mult: 3, vol: peakVol * 0.25 },
+    ].forEach(({ mult, vol }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq * mult;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + decaySec);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + decaySec + 0.05);
+    });
+  }
+
+  // Rising pentatonic arpeggio (C major).
+  const arpeggio = [
+    [523.25,  0.00],  // C5
+    [659.25,  0.10],  // E5
+    [783.99,  0.20],  // G5
+    [1046.50, 0.30],  // C6
+    [1318.51, 0.40],  // E6
+    [1567.98, 0.50],  // G6
+  ];
+  arpeggio.forEach(([freq, t]) => bell(freq, t, 0.45, 0.08));
+
+  // Sustained C-major chord — the resolution after the arpeggio peak.
+  const chord = [
+    [261.63, 0.10],  // C4 (root)
+    [329.63, 0.08],  // E4
+    [392.00, 0.08],  // G4
+    [523.25, 0.07],  // C5 (octave)
+  ];
+  chord.forEach(([freq, vol]) => bell(freq, 0.60, 1.80, vol));
+
+  // Pure-sine C3 bass grounding the whole thing.
+  const bass = ctx.createOscillator();
+  const bassGain = ctx.createGain();
+  bass.type = 'sine';
+  bass.frequency.value = 130.81;
+  bassGain.gain.setValueAtTime(0, now);
+  bassGain.gain.linearRampToValueAtTime(0.05, now + 0.20);
+  bassGain.gain.exponentialRampToValueAtTime(0.001, now + 2.50);
+  bass.connect(bassGain).connect(ctx.destination);
+  bass.start(now);
+  bass.stop(now + 2.55);
+}
+function syncSfxToggle() {
+  if (sfxToggleEl) sfxToggleEl.checked = readSfxEnabled();
+}
+
+// Set true while a match-removal animation is in flight, gating user input
+// so the deferred render() doesn't race a new click / hint / undo / shuffle.
+let isMatching = false;
+
 // ── Shuffle utility ──
 function shuffle(arr) {
   const a = arr.slice();
@@ -921,10 +1061,27 @@ function render() {
   tilesLeftEl.textContent = tiles.filter(t => !t.removed).length;
 }
 
-// Execute a confirmed match between two tiles by uid.
+// Execute a confirmed match between two tiles by uid. Visually fades the
+// matched pair out via the `.tile.matched` CSS transition (350 ms) before
+// the deferred render() removes them from the DOM. State is updated
+// immediately so undoStack/matchedPairs/setStatus stay in sync, but the
+// final render + end-conditions check are deferred so the player sees the
+// fade-out and the win modal doesn't appear over still-visible tiles.
 function matchPair(uidA, uidB) {
+  if (isMatching) return;
   const a = tiles[uidA];
   const b = tiles[uidB];
+
+  // Apply .matched to the LIVE DOM elements first; render() will wipe them
+  // when it runs. Pre-fix this happened after render(), so querySelector
+  // returned null and the fade-out was dead code.
+  const elA = boardEl.querySelector(`[data-uid="${a.uid}"]`);
+  const elB = boardEl.querySelector(`[data-uid="${b.uid}"]`);
+  if (elA) elA.classList.add('matched');
+  if (elB) elB.classList.add('matched');
+
+  playMatch();
+
   a.removed = true;
   b.removed = true;
   undoStack.push({ a: a.uid, b: b.uid });
@@ -935,18 +1092,19 @@ function matchPair(uidA, uidB) {
   selectedId = null;
   const logo = LOGOS.find(l => l.id === a.logoId);
   setStatus(`Matched: ${logo.name}!`);
-  render();
 
-  const elA = boardEl.querySelector(`[data-uid="${a.uid}"]`);
-  const elB = boardEl.querySelector(`[data-uid="${b.uid}"]`);
-  if (elA) elA.classList.add('matched');
-  if (elB) elB.classList.add('matched');
-
-  checkEndConditions();
+  isMatching = true;
+  const animMs = prefersReducedMotion() ? 0 : 350;
+  setTimeout(() => {
+    isMatching = false;
+    render();
+    checkEndConditions();
+  }, animMs);
 }
 
 // ── Tile click handler ──
 function onTileClick(uid, isFree) {
+  if (isMatching) return;
   resumeTimerIfPaused();
   if (!isFree) {
     setStatus('That tile is blocked. Choose one with a free left or right edge.');
@@ -954,6 +1112,10 @@ function onTileClick(uid, isFree) {
   }
 
   if (gameStartMs === null) gameStartMs = Date.now();
+  // Soft click for any meaningful free-tile interaction (select / re-select /
+  // deselect / accept-hint / attempt-match). matchPair adds the chime on top
+  // when it confirms a match — the brief layering reads as "click → confirm".
+  playClick();
 
   // If a hint pair is showing, clicking one of its tiles accepts the match
   if (hintPair) {
@@ -1009,23 +1171,25 @@ function checkEndConditions() {
     const finalElapsedMs = elapsedMs;
     const finalShuffles = shuffleCount;
     const finalHints = hintCount;
+    playWinFanfare();
     setTimeout(() => showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: finalElapsedMs,
       shuffles: finalShuffles,
       hints: finalHints,
-    }), 400);
+    }), 150);
     return;
   }
   const pairs = findFreePairs();
   if (pairs.length === 0) {
     setStatus('No more moves available. Use Shuffle or Undo.');
-    setTimeout(() => gameOverModal.classList.remove('hidden'), 400);
+    setTimeout(() => gameOverModal.classList.remove('hidden'), 150);
   }
 }
 
 // ── Hint ──
 function doHint() {
+  if (isMatching) return;
   resumeTimerIfPaused();
   selectedId = null;
   const pairs = findFreePairs();
@@ -1049,6 +1213,7 @@ function doHint() {
 
 // ── Undo ──
 function doUndo() {
+  if (isMatching) return;
   resumeTimerIfPaused();
   hintPair = null; hintIndex = 0;
   gameOverModal.classList.add('hidden');
@@ -1067,6 +1232,7 @@ function doUndo() {
 
 // ── Shuffle ──
 function doShuffle() {
+  if (isMatching) return;
   resumeTimerIfPaused();
   hintPair = null; hintIndex = 0;
   gameOverModal.classList.add('hidden');
@@ -1099,6 +1265,7 @@ function newGame() {
   playCountedThisGame = false;
   shuffleCount = 0;
   hintCount = 0;
+  isMatching = false;
   if (winTimeEl) winTimeEl.textContent = '—';
   if (winShufflesEl) winShufflesEl.textContent = '0';
   if (winHintsEl) winHintsEl.textContent = '0';
@@ -1198,6 +1365,7 @@ function showAbout(tab = 'about') {
   renderAboutStats();
   loadStatsForDisplay();
   syncTimerToggle();
+  syncSfxToggle();
   setActiveAboutTab(tab);
   aboutModal.classList.remove('hidden');
   setTimeout(() => {
@@ -1253,6 +1421,14 @@ if (showTimerToggleEl) {
     applyTimerVisibility();
   });
 }
+if (sfxToggleEl) {
+  sfxToggleEl.addEventListener('change', () => {
+    writeSfxEnabled(sfxToggleEl.checked);
+    // When the user enables sound, fire one click as immediate feedback so
+    // they can confirm the volume level before returning to the game.
+    if (sfxToggleEl.checked) playClick();
+  });
+}
 if (timerDisplayEl) {
   timerDisplayEl.addEventListener('click', toggleTimerPause);
 }
@@ -1286,6 +1462,7 @@ function randomReasonableHints(level) {
 document.getElementById('gameTitle').addEventListener('click', (e) => {
   e.stopPropagation();
   if (e.shiftKey) {
+    playWinFanfare();
     showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: randomReasonableWinMs(currentDifficulty),
@@ -1304,6 +1481,7 @@ galleryEl.addEventListener('click', (e) => {
 });
 
 function deselectTile() {
+  if (isMatching) return;
   resumeTimerIfPaused();
   if (selectedId === null && !hintPair) return;
   selectedId = null;

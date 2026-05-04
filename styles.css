@@ -240,8 +240,9 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
 
 .tile.matched {
   opacity: 0;
-  transform: scale(0.7);
+  transform: scale(0.7) rotate(8deg);
   pointer-events: none;
+  z-index: 9500 !important;
   transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
@@ -575,6 +576,7 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
   #winModal .modal-content > h2,
   #winModal .modal-content > p,
   #winModal .modal-content > button { animation: none !important; }
+  .tile.matched { transition: none; }
 }
 
 /* ─── Difficulty chooser modal ─── */
