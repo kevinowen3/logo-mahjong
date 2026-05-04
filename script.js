@@ -564,7 +564,9 @@ function spawnConfetti(layer, count = CONFETTI_COUNT) {
       h = w * (0.8 + Math.random() * 0.6);
     }
     const motionRoll = Math.random();
-    const motionClass = motionRoll < 0.55 ? '' : (motionRoll < 0.8 ? ' motion-flip' : ' motion-tumble');
+    let motionClass = '';
+    if (motionRoll >= 0.55 && motionRoll < 0.8) motionClass = ' motion-flip';
+    else if (motionRoll >= 0.8) motionClass = ' motion-tumble';
     p.className = `confetti-piece${shapeClass}${motionClass}`;
     const sway = (Math.random() - 0.5) * 280;
     p.style.left = `${Math.random() * 100}%`;
@@ -723,10 +725,10 @@ function updateTimerDisplay() {
   // mainText only ever contains digits, ':', a space, and the ⏸ glyph.
   // formatStopwatch(replayTargetMs) is similarly safe — both are produced
   // from numeric input. innerHTML is fine here.
-  if (replayTargetMs !== null) {
-    timerDisplayEl.innerHTML = `${mainText}<span class="timer-target">Beat ${formatStopwatch(replayTargetMs)}</span>`;
-  } else {
+  if (replayTargetMs === null) {
     timerDisplayEl.textContent = mainText;
+  } else {
+    timerDisplayEl.innerHTML = `${mainText}<span class="timer-target">Beat ${formatStopwatch(replayTargetMs)}</span>`;
   }
 }
 function toggleTimerPause() {
@@ -891,23 +893,23 @@ function playWinFanfare() {
 
   // Rising pentatonic arpeggio (C major).
   const arpeggio = [
-    [523.25,  0.00],  // C5
-    [659.25,  0.10],  // E5
-    [783.99,  0.20],  // G5
-    [1046.50, 0.30],  // C6
-    [1318.51, 0.40],  // E6
-    [1567.98, 0.50],  // G6
+    [523.25,  0],    // C5
+    [659.25,  0.1],  // E5
+    [783.99,  0.2],  // G5
+    [1046.5,  0.3],  // C6
+    [1318.51, 0.4],  // E6
+    [1567.98, 0.5],  // G6
   ];
   arpeggio.forEach(([freq, t]) => bell(freq, t, 0.45, 0.08));
 
   // Sustained C-major chord — the resolution after the arpeggio peak.
   const chord = [
-    [261.63, 0.10],  // C4 (root)
+    [261.63, 0.1],   // C4 (root)
     [329.63, 0.08],  // E4
-    [392.00, 0.08],  // G4
+    [392,    0.08],  // G4
     [523.25, 0.07],  // C5 (octave)
   ];
-  chord.forEach(([freq, vol]) => bell(freq, 0.60, 1.80, vol));
+  chord.forEach(([freq, vol]) => bell(freq, 0.6, 1.8, vol));
 
   // Pure-sine C3 bass grounding the whole thing.
   const bass = ctx.createOscillator();
@@ -915,8 +917,8 @@ function playWinFanfare() {
   bass.type = 'sine';
   bass.frequency.value = 130.81;
   bassGain.gain.setValueAtTime(0, now);
-  bassGain.gain.linearRampToValueAtTime(0.05, now + 0.20);
-  bassGain.gain.exponentialRampToValueAtTime(0.001, now + 2.50);
+  bassGain.gain.linearRampToValueAtTime(0.05, now + 0.2);
+  bassGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
   bass.connect(bassGain).connect(ctx.destination);
   bass.start(now);
   bass.stop(now + 2.55);
@@ -974,7 +976,11 @@ function shuffle(arr, rng = Math.random) {
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function() {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    // `|= 0` and `| 0` here are NOT equivalent to Math.trunc — they force
+    // ToInt32 with mod-2^32 wrap, which mulberry32's state advance requires.
+    // Math.trunc keeps Number precision (no wrap) and would break the
+    // algorithm, silently invalidating every existing challenge URL.
+    a |= 0; a = (a + 0x6D2B79F5) | 0; // NOSONAR
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -993,7 +999,7 @@ function buildTiles() {
   const activeLogos = LOGOS.filter(l => activeIds.has(l.id));
   const ids = [];
   activeLogos.forEach(logo => { for (let i = 0; i < 4; i++) ids.push(logo.id); });
-  const rng = currentSeed !== null ? mulberry32(currentSeed) : Math.random;
+  const rng = currentSeed === null ? Math.random : mulberry32(currentSeed);
   const shuffled = shuffle(ids, rng);
   tiles = LAYOUT.map((pos, i) => ({
     uid: i,
@@ -1211,15 +1217,14 @@ function matchPair(uidA, uidB) {
 
   isMatching = true;
   // Match-fade is gameplay feedback (showing which two tiles got cleared),
-  // not decorative motion — so it runs unconditionally. prefers-reduced-motion
-  // still suppresses the truly decorative pieces (confetti, modal entrance,
-  // trophy pop, sparkles, count-up).
-  const animMs = 350;
+  // not decorative motion — so it runs unconditionally at 350 ms.
+  // prefers-reduced-motion still suppresses the decorative pieces (confetti,
+  // modal entrance, trophy pop, sparkles, count-up).
   setTimeout(() => {
     isMatching = false;
     render();
     checkEndConditions();
-  }, animMs);
+  }, 350);
 }
 
 // ── Tile click handler ──
@@ -1551,7 +1556,7 @@ function showAbout(tab = 'about') {
 }
 aboutModal.querySelector('.about-tabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.about-tab-button');
-  if (btn && btn.dataset.tab) setActiveAboutTab(btn.dataset.tab);
+  if (btn?.dataset.tab) setActiveAboutTab(btn.dataset.tab);
 });
 function maybeShowFirstVisitHelp() {
   // First-visit auto-show: open the modal on the Help tab once, then mark seen
@@ -1751,7 +1756,7 @@ function readChallengeFromUrl() {
     const level = param.slice(0, dash);
     const seedStr = param.slice(dash + 1);
     if (!DIFFICULTIES.has(level)) return null;
-    const seed = parseInt(seedStr, 36);
+    const seed = Number.parseInt(seedStr, 36);
     if (!Number.isFinite(seed) || seed < 0 || seed > 0xFFFFFFFF) return null;
     return { level, seed: seed >>> 0 };
   } catch {
@@ -1940,6 +1945,11 @@ function _vTestLevelTransitions() {
   return _vSummarize('testLevelTransitions', r);
 }
 
+function _vRestoreLs(key, val) {
+  if (val == null) globalThis.localStorage.removeItem(key);
+  else globalThis.localStorage.setItem(key, val);
+}
+
 globalThis.__validateLogo = function __validateLogo() {
   const saved = {
     currentDifficulty,
@@ -1948,16 +1958,16 @@ globalThis.__validateLogo = function __validateLogo() {
   };
   const groups = [];
   try {
-    groups.push(_vTestLogoSubsets());
-    groups.push(_vTestLayouts());
-    groups.push(_vTestFreeTileLogic());
-    groups.push(_vTestMigration());
-    groups.push(_vTestLevelTransitions());
+    groups.push(
+      _vTestLogoSubsets(),
+      _vTestLayouts(),
+      _vTestFreeTileLogic(),
+      _vTestMigration(),
+      _vTestLevelTransitions(),
+    );
   } finally {
-    if (saved.statsLs == null) globalThis.localStorage.removeItem(LS_STATS_KEY);
-    else globalThis.localStorage.setItem(LS_STATS_KEY, saved.statsLs);
-    if (saved.diffLs == null) globalThis.localStorage.removeItem(LS_DIFFICULTY_KEY);
-    else globalThis.localStorage.setItem(LS_DIFFICULTY_KEY, saved.diffLs);
+    _vRestoreLs(LS_STATS_KEY, saved.statsLs);
+    _vRestoreLs(LS_DIFFICULTY_KEY, saved.diffLs);
     applyDifficulty(saved.currentDifficulty);
     newGame();
   }
