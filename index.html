@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Logo</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=27">
+  <link rel="stylesheet" href="styles.css?v=28">
 </head>
 <body>
   <div id="app">
@@ -117,7 +117,7 @@
         <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
         <p>Written by Kevin Owen</p>
         <p>with help from Claude Code</p>
-        <p class="about-date">Date: 30 Apr 2026</p>
+        <p class="about-date">Date: 4 May 2026</p>
         <label class="about-toggle"><input type="checkbox" id="showTimerToggle"> Show elapsed time during play</label>
         <p class="about-hint">To pause the timer, click on the elapsed time displayed.</p>
         <label class="about-toggle"><input type="checkbox" id="sfxToggle"> Play sound effects</label>
@@ -165,11 +165,13 @@
       <p>You cleared all the tiles!</p>
       <p class="win-level">Level: <span id="winLevel">&mdash;</span></p>
       <p class="win-time" id="winTime">Finished in <strong>&mdash;</strong></p>
+      <p class="win-delta hidden" id="winDelta"></p>
       <p class="win-shuffles">Shuffles: <strong id="winShuffles">0</strong></p>
       <p class="win-hints">Hints: <strong id="winHints">0</strong></p>
       <div class="win-buttons">
         <button id="btnChallengeFriend" class="btn-secondary">Challenge a Friend</button>
-        <button id="btnNewAfterWin">Play Again</button>
+        <button id="btnSameBoardAfterWin" title="Play this same board again to beat your time">Same Board</button>
+        <button id="btnNewAfterWin">New Board</button>
       </div>
     </div>
   </div>
@@ -186,6 +188,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=32"></script>
+  <script src="script.js?v=33"></script>
 </body>
 </html>

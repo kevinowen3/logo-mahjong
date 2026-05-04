@@ -140,6 +140,15 @@ html, body {
   background: rgba(217, 119, 6, 0.9);
 }
 .timer-display.hidden { display: none; }
+.timer-display .timer-target {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+  color: #ffd97a;
+}
 
 /* Bottom-right available-pairs pill — only shown in fullscreen, where the
    status bar is hidden. Mirrors the timer's visual treatment so the two
@@ -450,6 +459,15 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
   font-size: 0.95rem;
 }
 .modal-content .win-time strong { color: #222; }
+.modal-content .win-delta {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  color: #b08020;
+  font-weight: 600;
+}
+.modal-content .win-delta.faster { color: #1a7c3a; }
+.modal-content .win-delta.slower { color: #a8651a; font-weight: 500; }
+.modal-content .win-delta.hidden { display: none; }
 .modal-content .win-shuffles {
   margin: 0.5rem 0;
   color: #444;
@@ -579,9 +597,10 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
 #winModal:not(.hidden) .modal-content > p:nth-of-type(1) { animation-delay: 200ms; } /* "You cleared all the tiles!" */
 #winModal:not(.hidden) .modal-content > .win-level  { animation-delay: 300ms; }
 #winModal:not(.hidden) .modal-content > .win-time   { animation-delay: 400ms; }
-#winModal:not(.hidden) .modal-content > .win-shuffles { animation-delay: 500ms; }
-#winModal:not(.hidden) .modal-content > .win-hints  { animation-delay: 600ms; }
-#winModal:not(.hidden) .modal-content > .win-buttons { animation-delay: 700ms; }
+#winModal:not(.hidden) .modal-content > .win-delta  { animation-delay: 500ms; }
+#winModal:not(.hidden) .modal-content > .win-shuffles { animation-delay: 600ms; }
+#winModal:not(.hidden) .modal-content > .win-hints  { animation-delay: 700ms; }
+#winModal:not(.hidden) .modal-content > .win-buttons { animation-delay: 800ms; }
 
 @media (prefers-reduced-motion: reduce) {
   #winModal .confetti-layer { display: none; }

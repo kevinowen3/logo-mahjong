@@ -379,6 +379,10 @@ let pausedAtMs = null;
 let playCountedThisGame = false;
 let shuffleCount = 0;
 let hintCount = 0;
+// Set when the player chooses "Same Board" from the win modal: the elapsed
+// time of the just-finished win, in ms, becomes the time to beat for the
+// next attempt on this seed. Cleared by any non-replay newGame() call.
+let replayTargetMs = null;
 
 // DOM refs
 const boardEl = document.getElementById('board');
@@ -395,6 +399,7 @@ const winTimeEl = document.querySelector('#winTime strong');
 const winLevelEl = document.getElementById('winLevel');
 const winShufflesEl = document.getElementById('winShuffles');
 const winHintsEl = document.getElementById('winHints');
+const winDeltaEl = document.getElementById('winDelta');
 const winConfettiEl = document.getElementById('winConfetti');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const showTimerToggleEl = document.getElementById('showTimerToggle');
@@ -608,12 +613,33 @@ function animateCount(el, fromVal, toVal, durationMs, formatter, onFrameId) {
   onFrameId(requestAnimationFrame(tick));
 }
 
-function showWinModal({ levelLabel, elapsedMs, shuffles, hints }) {
+function showWinModal({ levelLabel, elapsedMs, shuffles, hints, targetMs }) {
   cancelWinAnimations();
   if (winLevelEl) winLevelEl.textContent = levelLabel;
   if (winTimeEl) winTimeEl.textContent = formatDuration(0);
   if (winShufflesEl) winShufflesEl.textContent = '0';
   if (winHintsEl) winHintsEl.textContent = '0';
+  if (winDeltaEl) {
+    if (targetMs != null && Number.isFinite(targetMs)) {
+      const delta = elapsedMs - targetMs;
+      const absStr = formatStopwatch(Math.abs(delta));
+      const targetStr = formatStopwatch(targetMs);
+      const faster = delta < 0;
+      const tied = delta === 0;
+      let text;
+      if (tied) text = `Tied your last attempt (${targetStr}).`;
+      else if (faster) text = `New best! ${absStr} faster than your last attempt (was ${targetStr}).`;
+      else text = `${absStr} slower than your last attempt (was ${targetStr}).`;
+      winDeltaEl.textContent = text;
+      winDeltaEl.classList.toggle('faster', faster);
+      winDeltaEl.classList.toggle('slower', !faster && !tied);
+      winDeltaEl.classList.remove('hidden');
+    } else {
+      winDeltaEl.classList.add('hidden');
+      winDeltaEl.classList.remove('faster', 'slower');
+      winDeltaEl.textContent = '';
+    }
+  }
   winModal.classList.remove('hidden');
   spawnConfetti(winConfettiEl);
   countStartTimeoutId = setTimeout(() => {
@@ -684,15 +710,24 @@ function formatStopwatch(ms) {
 }
 function updateTimerDisplay() {
   if (!timerDisplayEl) return;
+  let mainText;
   if (gameStartMs === null) {
-    timerDisplayEl.textContent = '0:00';
+    mainText = '0:00';
     timerDisplayEl.classList.remove('paused');
-    return;
+  } else {
+    const endMs = gameEndMs ?? (paused ? pausedAtMs : Date.now());
+    const text = formatStopwatch(endMs - gameStartMs);
+    mainText = paused ? `${text} ⏸` : text;
+    timerDisplayEl.classList.toggle('paused', paused);
   }
-  const endMs = gameEndMs ?? (paused ? pausedAtMs : Date.now());
-  const text = formatStopwatch(endMs - gameStartMs);
-  timerDisplayEl.textContent = paused ? `${text} ⏸` : text;
-  timerDisplayEl.classList.toggle('paused', paused);
+  // mainText only ever contains digits, ':', a space, and the ⏸ glyph.
+  // formatStopwatch(replayTargetMs) is similarly safe — both are produced
+  // from numeric input. innerHTML is fine here.
+  if (replayTargetMs !== null) {
+    timerDisplayEl.innerHTML = `${mainText}<span class="timer-target">Beat ${formatStopwatch(replayTargetMs)}</span>`;
+  } else {
+    timerDisplayEl.textContent = mainText;
+  }
 }
 function toggleTimerPause() {
   if (gameStartMs === null || gameEndMs !== null) return;
@@ -1252,12 +1287,14 @@ function checkEndConditions() {
     const finalElapsedMs = elapsedMs;
     const finalShuffles = shuffleCount;
     const finalHints = hintCount;
+    const finalTargetMs = replayTargetMs;
     playWinSound();
     setTimeout(() => showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: finalElapsedMs,
       shuffles: finalShuffles,
       hints: finalHints,
+      targetMs: finalTargetMs,
     }), 150);
     return;
   }
@@ -1334,11 +1371,15 @@ function doShuffle() {
 // ── New Game ──
 // opts.preserveSeed = true keeps the existing currentSeed (used only by the
 // boot-with-challenge-URL path so the URL's seed actually drives the board).
+// opts.tryAgain = true also keeps the seed AND keeps replayTargetMs intact
+// (used only by the "Same Board" win-modal button so the player races their
+// just-finished time on an identical layout).
 // All other callers (toolbar New Game, win/game-over modals, difficulty
 // chooser) get a fresh random seed AND a cleaned URL — clicking New Game
 // after playing a challenge always starts a fresh game, not a replay.
 function newGame(opts = {}) {
-  if (!opts.preserveSeed) {
+  const isReplay = opts.tryAgain === true;
+  if (!opts.preserveSeed && !isReplay) {
     currentSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
     // Strip ?challenge= from the URL so refresh starts a fresh game rather
     // than re-triggering the challenge that originally loaded the page.
@@ -1346,6 +1387,7 @@ function newGame(opts = {}) {
       try { history.replaceState({}, '', location.pathname); } catch {}
     }
   }
+  if (!isReplay) replayTargetMs = null;
   hintPair = null; hintIndex = 0;
   hideWinModal();
   gameOverModal.classList.add('hidden');
@@ -1363,6 +1405,11 @@ function newGame(opts = {}) {
   if (winTimeEl) winTimeEl.textContent = '—';
   if (winShufflesEl) winShufflesEl.textContent = '0';
   if (winHintsEl) winHintsEl.textContent = '0';
+  if (winDeltaEl) {
+    winDeltaEl.classList.add('hidden');
+    winDeltaEl.classList.remove('faster', 'slower');
+    winDeltaEl.textContent = '';
+  }
   if (winLevelEl) winLevelEl.textContent = LEVEL_LABELS[currentDifficulty];
   buildTiles();
   setStatus('New game started. Click a free tile to begin.');
@@ -1428,6 +1475,14 @@ document.getElementById('btnShuffle').addEventListener('click', doShuffle);
 document.getElementById('btnLogos').addEventListener('click', showGallery);
 document.getElementById('btnCloseGallery').addEventListener('click', hideGallery);
 document.getElementById('btnNewAfterWin').addEventListener('click', () => newGame());
+// "Same Board" — replays the just-finished seed, with replayTargetMs set so
+// the timer overlay shows "Beat M:SS" and the next win modal renders a delta.
+function tryAgainSameBoard() {
+  if (gameStartMs === null || gameEndMs === null) return;
+  replayTargetMs = gameEndMs - gameStartMs;
+  newGame({ tryAgain: true });
+}
+document.getElementById('btnSameBoardAfterWin').addEventListener('click', tryAgainSameBoard);
 // Challenge a Friend: copies a URL embedding the current level + seed so
 // the recipient plays the exact same starting board. Falls back to a
 // prompt() if the clipboard API is unavailable (older browsers, file://,
