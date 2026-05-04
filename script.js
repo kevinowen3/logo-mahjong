@@ -723,12 +723,20 @@ function syncTimerToggle() {
   if (showTimerToggleEl) showTimerToggleEl.checked = readShowTimer();
 }
 
-// ── Sound effects (Web Audio API, synthesized — no asset files) ──
-// Two short sine-based sounds: a soft click on tile selection and a two-note
-// chime on a confirmed match. Audio context is created lazily on the first
-// playback attempt; constructing inside a click handler satisfies mobile
-// autoplay policy. Mute pref persists in localStorage; defaults ON.
+// ── Sound effects (Web Audio API) ──
+// Click + match sounds are synthesized inline (no asset files). Win sound
+// is a CC0 applause clip from Wikimedia Commons (assets/applause.mp3, ~49 KB,
+// 4 s mono with built-in fade-out) — preloaded at boot, played via
+// AudioBufferSourceNode. If load or decode fails for any reason (404,
+// offline, decode error, no Web Audio support), playWinSound() falls back
+// to the synthesized playWinFanfare() so the win moment always has audio.
+// Audio context is created lazily on the first playback attempt;
+// constructing inside a click handler satisfies mobile autoplay policy.
+// Mute pref persists in localStorage; defaults ON.
 let audioCtx = null;
+let applauseArrayBuffer = null;  // raw bytes fetched at boot
+let applauseBuffer = null;       // decoded AudioBuffer (created on first audioCtx)
+let applauseLoadStarted = false;
 const sfxToggleEl = document.getElementById('sfxToggle');
 function readSfxEnabled() {
   try { return globalThis.localStorage.getItem(LS_SFX_KEY) !== '0'; }
@@ -747,10 +755,35 @@ function getOrCreateAudioCtx() {
   try {
     audioCtx = new Ctx();
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    // Decode the applause now if its bytes are already fetched. (If the
+    // fetch is still in flight, the load handler will trigger decode once
+    // it lands — both timing orders are covered.)
+    if (applauseArrayBuffer) maybeDecodeApplause(audioCtx);
     return audioCtx;
   } catch {
     return null;
   }
+}
+function loadApplauseAsset() {
+  if (applauseLoadStarted) return;
+  applauseLoadStarted = true;
+  fetch('assets/applause.mp3?v=30')
+    .then(r => r.ok ? r.arrayBuffer() : null)
+    .then(buf => {
+      applauseArrayBuffer = buf;
+      // If audioCtx already exists by the time the fetch completes, decode
+      // immediately so the first win can play the clip without delay.
+      if (audioCtx && applauseArrayBuffer) maybeDecodeApplause(audioCtx);
+    })
+    .catch(() => { /* silent — playWinSound will fall back to fanfare */ });
+}
+function maybeDecodeApplause(ctx) {
+  if (applauseBuffer || !applauseArrayBuffer) return;
+  // decodeAudioData consumes the ArrayBuffer in some browsers; slice to
+  // clone so a retry path (e.g. multiple windows of the same SPA) is safe.
+  ctx.decodeAudioData(applauseArrayBuffer.slice(0))
+    .then(b => { applauseBuffer = b; })
+    .catch(() => { /* decode failure → fallback to fanfare on play */ });
 }
 function playClick() {
   if (!readSfxEnabled()) return;
@@ -853,6 +886,30 @@ function playWinFanfare() {
   bass.connect(bassGain).connect(ctx.destination);
   bass.start(now);
   bass.stop(now + 2.55);
+}
+// Win sound: prefer the recorded applause clip; fall back to the synthesized
+// fanfare if the buffer isn't available (still loading, decode error, no
+// network, no Web Audio support, etc.) so the win moment never lands silent.
+function playWinSound() {
+  if (!readSfxEnabled()) return;
+  const ctx = getOrCreateAudioCtx();
+  if (!ctx) { playWinFanfare(); return; }
+  if (applauseBuffer) {
+    const src = ctx.createBufferSource();
+    src.buffer = applauseBuffer;
+    const gain = ctx.createGain();
+    // 0.6 keeps the clip celebratory but not painful — the source MP3 peaks
+    // at 0.0 dB, so unattenuated playback would jolt the player.
+    gain.gain.value = 0.6;
+    src.connect(gain).connect(ctx.destination);
+    src.start(ctx.currentTime);
+    return;
+  }
+  // Buffer not ready yet — fire fanfare so the player gets *some* feedback.
+  // If this is the very first time the user has played and won quickly, the
+  // applause clip may not have finished decoding yet; subsequent wins will
+  // use the recording.
+  playWinFanfare();
 }
 function syncSfxToggle() {
   if (sfxToggleEl) sfxToggleEl.checked = readSfxEnabled();
@@ -1171,7 +1228,7 @@ function checkEndConditions() {
     const finalElapsedMs = elapsedMs;
     const finalShuffles = shuffleCount;
     const finalHints = hintCount;
-    playWinFanfare();
+    playWinSound();
     setTimeout(() => showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: finalElapsedMs,
@@ -1462,7 +1519,7 @@ function randomReasonableHints(level) {
 document.getElementById('gameTitle').addEventListener('click', (e) => {
   e.stopPropagation();
   if (e.shiftKey) {
-    playWinFanfare();
+    playWinSound();
     showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
       elapsedMs: randomReasonableWinMs(currentDifficulty),
@@ -1571,6 +1628,7 @@ requestAnimationFrame(() => {
   applyTimerVisibility();
   setInterval(updateTimerDisplay, 1000);
   maybeShowFirstVisitHelp();
+  loadApplauseAsset();
 });
 
 // ─── In-page validator (dev tool) ─────────────────────────────────────
