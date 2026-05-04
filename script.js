@@ -734,9 +734,9 @@ function syncTimerToggle() {
 // constructing inside a click handler satisfies mobile autoplay policy.
 // Mute pref persists in localStorage; defaults ON.
 let audioCtx = null;
-let applauseArrayBuffer = null;  // raw bytes fetched at boot
-let applauseBuffer = null;       // decoded AudioBuffer (created on first audioCtx)
-let applauseLoadStarted = false;
+let applauseFetchPromise = null;   // resolves to ArrayBuffer | null (404, network err)
+let applauseDecodePromise = null;  // resolves to AudioBuffer | null (decode err)
+let applauseBuffer = null;         // cached decoded buffer for fast subsequent wins
 const sfxToggleEl = document.getElementById('sfxToggle');
 function readSfxEnabled() {
   try { return globalThis.localStorage.getItem(LS_SFX_KEY) !== '0'; }
@@ -755,35 +755,34 @@ function getOrCreateAudioCtx() {
   try {
     audioCtx = new Ctx();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    // Decode the applause now if its bytes are already fetched. (If the
-    // fetch is still in flight, the load handler will trigger decode once
-    // it lands — both timing orders are covered.)
-    if (applauseArrayBuffer) maybeDecodeApplause(audioCtx);
     return audioCtx;
   } catch {
     return null;
   }
 }
 function loadApplauseAsset() {
-  if (applauseLoadStarted) return;
-  applauseLoadStarted = true;
-  fetch('assets/applause.mp3?v=30')
+  if (applauseFetchPromise) return applauseFetchPromise;
+  applauseFetchPromise = fetch('assets/applause.mp3?v=30')
     .then(r => r.ok ? r.arrayBuffer() : null)
-    .then(buf => {
-      applauseArrayBuffer = buf;
-      // If audioCtx already exists by the time the fetch completes, decode
-      // immediately so the first win can play the clip without delay.
-      if (audioCtx && applauseArrayBuffer) maybeDecodeApplause(audioCtx);
-    })
-    .catch(() => { /* silent — playWinSound will fall back to fanfare */ });
+    .catch(() => null);
+  return applauseFetchPromise;
 }
-function maybeDecodeApplause(ctx) {
-  if (applauseBuffer || !applauseArrayBuffer) return;
-  // decodeAudioData consumes the ArrayBuffer in some browsers; slice to
-  // clone so a retry path (e.g. multiple windows of the same SPA) is safe.
-  ctx.decodeAudioData(applauseArrayBuffer.slice(0))
-    .then(b => { applauseBuffer = b; })
-    .catch(() => { /* decode failure → fallback to fanfare on play */ });
+// Returns a promise resolving to the decoded AudioBuffer (or null on
+// fetch/decode failure). Idempotent: caches the decode promise so repeat
+// callers share one decode pass; subsequent calls return the cached buffer.
+function ensureApplauseDecoded(ctx) {
+  if (applauseBuffer) return Promise.resolve(applauseBuffer);
+  if (applauseDecodePromise) return applauseDecodePromise;
+  const fetchPromise = applauseFetchPromise || loadApplauseAsset();
+  applauseDecodePromise = fetchPromise.then(arr => {
+    if (!arr) return null;
+    // decodeAudioData consumes the ArrayBuffer in some browsers; slice
+    // to clone so the original survives if a retry is ever needed.
+    return ctx.decodeAudioData(arr.slice(0))
+      .then(b => { applauseBuffer = b; return b; })
+      .catch(() => null);
+  });
+  return applauseDecodePromise;
 }
 function playClick() {
   if (!readSfxEnabled()) return;
@@ -888,28 +887,26 @@ function playWinFanfare() {
   bass.stop(now + 2.55);
 }
 // Win sound: prefer the recorded applause clip; fall back to the synthesized
-// fanfare if the buffer isn't available (still loading, decode error, no
-// network, no Web Audio support, etc.) so the win moment never lands silent.
-function playWinSound() {
+// fanfare only if fetch or decode fail outright (404, decode error, no Web
+// Audio support). Async because decodeAudioData is — synchronous checking of
+// applauseBuffer would always miss on the first win since decode hasn't
+// resolved yet at that point. A typical first-win has ~10–50 ms of decode
+// latency, imperceptible against the 350 ms tile-fade animation that
+// precedes the win-modal fire.
+async function playWinSound() {
   if (!readSfxEnabled()) return;
   const ctx = getOrCreateAudioCtx();
   if (!ctx) { playWinFanfare(); return; }
-  if (applauseBuffer) {
-    const src = ctx.createBufferSource();
-    src.buffer = applauseBuffer;
-    const gain = ctx.createGain();
-    // 0.6 keeps the clip celebratory but not painful — the source MP3 peaks
-    // at 0.0 dB, so unattenuated playback would jolt the player.
-    gain.gain.value = 0.6;
-    src.connect(gain).connect(ctx.destination);
-    src.start(ctx.currentTime);
-    return;
-  }
-  // Buffer not ready yet — fire fanfare so the player gets *some* feedback.
-  // If this is the very first time the user has played and won quickly, the
-  // applause clip may not have finished decoding yet; subsequent wins will
-  // use the recording.
-  playWinFanfare();
+  const buf = await ensureApplauseDecoded(ctx);
+  if (!buf) { playWinFanfare(); return; }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const gain = ctx.createGain();
+  // 0.6 keeps the clip celebratory but not painful — the source MP3 peaks
+  // at 0 dB, so unattenuated playback would jolt the player.
+  gain.gain.value = 0.6;
+  src.connect(gain).connect(ctx.destination);
+  src.start(ctx.currentTime);
 }
 function syncSfxToggle() {
   if (sfxToggleEl) sfxToggleEl.checked = readSfxEnabled();
