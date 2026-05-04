@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Logo</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=26">
+  <link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
   <div id="app">
@@ -167,7 +167,10 @@
       <p class="win-time" id="winTime">Finished in <strong>&mdash;</strong></p>
       <p class="win-shuffles">Shuffles: <strong id="winShuffles">0</strong></p>
       <p class="win-hints">Hints: <strong id="winHints">0</strong></p>
-      <button id="btnNewAfterWin">Play Again</button>
+      <div class="win-buttons">
+        <button id="btnChallengeFriend" class="btn-secondary">Challenge a Friend</button>
+        <button id="btnNewAfterWin">Play Again</button>
+      </div>
     </div>
   </div>
 
@@ -183,6 +186,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=31"></script>
+  <script src="script.js?v=32"></script>
 </body>
 </html>

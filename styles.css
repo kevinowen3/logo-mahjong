@@ -466,6 +466,13 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
 .modal-content h2.game-over-heading { color: #a83232; }
 .modal-content p  { margin-bottom: 1.2rem; color: #555; }
 .modal-content .modal-buttons { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+.modal-content .win-buttons {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
 .modal-content button {
   appearance: none;
   border: none;
@@ -479,6 +486,14 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
   cursor: pointer;
 }
 .modal-content button:hover { background: #245a3a; }
+.modal-content button.btn-secondary {
+  background: #4a90a4;
+}
+.modal-content button.btn-secondary:hover { background: #3b7a8c; }
+.modal-content button.btn-secondary.copied {
+  background: #1a5c30;
+  cursor: default;
+}
 
 /* ─── Win-modal animations ─── */
 #winModal .modal-content { position: relative; z-index: 1; }
@@ -557,7 +572,7 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
 }
 #winModal:not(.hidden) .modal-content > h2,
 #winModal:not(.hidden) .modal-content > p,
-#winModal:not(.hidden) .modal-content > button {
+#winModal:not(.hidden) .modal-content > .win-buttons {
   animation: winLineIn 350ms ease-out both;
 }
 #winModal:not(.hidden) .modal-content > h2          { animation-delay: 100ms; }
@@ -566,7 +581,7 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
 #winModal:not(.hidden) .modal-content > .win-time   { animation-delay: 400ms; }
 #winModal:not(.hidden) .modal-content > .win-shuffles { animation-delay: 500ms; }
 #winModal:not(.hidden) .modal-content > .win-hints  { animation-delay: 600ms; }
-#winModal:not(.hidden) .modal-content > button      { animation-delay: 700ms; }
+#winModal:not(.hidden) .modal-content > .win-buttons { animation-delay: 700ms; }
 
 @media (prefers-reduced-motion: reduce) {
   #winModal .confetti-layer { display: none; }
@@ -575,7 +590,7 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
   #winModal .win-trophy .sparkle,
   #winModal .modal-content > h2,
   #winModal .modal-content > p,
-  #winModal .modal-content > button { animation: none !important; }
+  #winModal .modal-content > .win-buttons { animation: none !important; }
   .tile.matched { transition: none; }
 }
 

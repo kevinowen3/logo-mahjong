@@ -916,15 +916,41 @@ function syncSfxToggle() {
 // so the deferred render() doesn't race a new click / hint / undo / shuffle.
 let isMatching = false;
 
-// ── Shuffle utility ──
-function shuffle(arr) {
+// ── Shuffle utility + seeded PRNG ──
+// shuffle() defaults to Math.random; pass a seeded function (e.g.
+// mulberry32(seed)) to make the output deterministic — used for the
+// challenge-URL feature so two devices with the same seed produce the
+// same starting board. doShuffle() (in-game shuffle when stuck) keeps
+// the default Math.random so two players solving the same challenge can
+// take different shuffle paths and the comparison is still fair (the win
+// modal already surfaces shuffle/hint counts).
+function shuffle(arr, rng = Math.random) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
+// Mulberry32 — compact 32-bit PRNG, well-distributed enough for shuffle.
+// Returns a function that yields floats in [0, 1) deterministically from
+// the given seed. Pinning this algorithm matters: any change would break
+// existing challenge URLs by producing different boards from the same seed.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 32-bit unsigned int — set at every game start. Initial value is null;
+// newGame() picks a fresh random seed unless called with { preserveSeed: true }
+// (only the boot-with-challenge-URL path uses that). buildTiles() feeds the
+// seed into mulberry32() so the layout is deterministic from the seed.
+let currentSeed = null;
 
 // ── Build tiles for a new game ──
 function buildTiles() {
@@ -932,7 +958,8 @@ function buildTiles() {
   const activeLogos = LOGOS.filter(l => activeIds.has(l.id));
   const ids = [];
   activeLogos.forEach(logo => { for (let i = 0; i < 4; i++) ids.push(logo.id); });
-  const shuffled = shuffle(ids);
+  const rng = currentSeed !== null ? mulberry32(currentSeed) : Math.random;
+  const shuffled = shuffle(ids, rng);
   tiles = LAYOUT.map((pos, i) => ({
     uid: i,
     logoId: shuffled[i],
@@ -1305,7 +1332,20 @@ function doShuffle() {
 }
 
 // ── New Game ──
-function newGame() {
+// opts.preserveSeed = true keeps the existing currentSeed (used only by the
+// boot-with-challenge-URL path so the URL's seed actually drives the board).
+// All other callers (toolbar New Game, win/game-over modals, difficulty
+// chooser) get a fresh random seed AND a cleaned URL — clicking New Game
+// after playing a challenge always starts a fresh game, not a replay.
+function newGame(opts = {}) {
+  if (!opts.preserveSeed) {
+    currentSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
+    // Strip ?challenge= from the URL so refresh starts a fresh game rather
+    // than re-triggering the challenge that originally loaded the page.
+    if (location.search) {
+      try { history.replaceState({}, '', location.pathname); } catch {}
+    }
+  }
   hintPair = null; hintIndex = 0;
   hideWinModal();
   gameOverModal.classList.add('hidden');
@@ -1381,16 +1421,40 @@ function hideGallery() {
 }
 
 // ── Event listeners ──
-document.getElementById('btnNew').addEventListener('click', newGame);
+document.getElementById('btnNew').addEventListener('click', () => newGame());
 document.getElementById('btnHint').addEventListener('click', doHint);
 document.getElementById('btnUndo').addEventListener('click', doUndo);
 document.getElementById('btnShuffle').addEventListener('click', doShuffle);
 document.getElementById('btnLogos').addEventListener('click', showGallery);
 document.getElementById('btnCloseGallery').addEventListener('click', hideGallery);
-document.getElementById('btnNewAfterWin').addEventListener('click', newGame);
+document.getElementById('btnNewAfterWin').addEventListener('click', () => newGame());
+// Challenge a Friend: copies a URL embedding the current level + seed so
+// the recipient plays the exact same starting board. Falls back to a
+// prompt() if the clipboard API is unavailable (older browsers, file://,
+// permission-denied). currentSeed is always set during a game (newGame
+// guarantees it), so the URL is well-formed at click time.
+function buildChallengeUrl() {
+  const seedB36 = currentSeed.toString(36).toUpperCase();
+  return `${location.origin}${location.pathname}?challenge=${currentDifficulty}-${seedB36}`;
+}
+async function shareChallenge() {
+  const btn = document.getElementById('btnChallengeFriend');
+  if (!btn || currentSeed === null) return;
+  const url = buildChallengeUrl();
+  const restoreLabel = () => { btn.textContent = 'Challenge a Friend'; btn.classList.remove('copied'); };
+  try {
+    await navigator.clipboard.writeText(url);
+    btn.textContent = 'Link Copied!';
+    btn.classList.add('copied');
+    setTimeout(restoreLabel, 2000);
+  } catch {
+    globalThis.prompt('Copy this challenge link and send it to a friend:', url);
+  }
+}
+document.getElementById('btnChallengeFriend').addEventListener('click', shareChallenge);
 document.getElementById('btnUndoAfterGameOver').addEventListener('click', doUndo);
 document.getElementById('btnShuffleAfterGameOver').addEventListener('click', doShuffle);
-document.getElementById('btnNewGameAfterGameOver').addEventListener('click', newGame);
+document.getElementById('btnNewGameAfterGameOver').addEventListener('click', () => newGame());
 
 const aboutModal = document.getElementById('aboutModal');
 const aboutContentEl = aboutModal.querySelector('.about-content');
@@ -1613,13 +1677,44 @@ screen.orientation?.addEventListener?.('change', () => {
   setTimeout(render, 600);
 });
 
+// ── Challenge-URL parsing ──
+// URL format: ?challenge=<level>-<seedBase36>  e.g. ?challenge=advanced-3F7K2P
+// Returns { level, seed } on a valid match or null otherwise. Validation is
+// strict: level must be in DIFFICULTIES, seed must parse to a non-negative
+// integer that fits in 32 bits. Anything malformed is silently ignored so
+// a typo in the link just falls through to a normal random game.
+function readChallengeFromUrl() {
+  try {
+    const param = new URLSearchParams(location.search).get('challenge');
+    if (!param) return null;
+    const dash = param.indexOf('-');
+    if (dash < 1) return null;
+    const level = param.slice(0, dash);
+    const seedStr = param.slice(dash + 1);
+    if (!DIFFICULTIES.has(level)) return null;
+    const seed = parseInt(seedStr, 36);
+    if (!Number.isFinite(seed) || seed < 0 || seed > 0xFFFFFFFF) return null;
+    return { level, seed: seed >>> 0 };
+  } catch {
+    return null;
+  }
+}
+
 // ── Initialize (defer so flex layout is fully computed) ──
 // Sync LAYOUT/TILE_COLS/TILE_ROWS to the persisted level (no localStorage
-// write — that's what chooseDifficulty() is for).
-applyDifficulty(currentDifficulty);
+// write — that's what chooseDifficulty() is for). If the URL carries a
+// valid challenge, override the level + seed before the first newGame()
+// so the deterministic board renders on first frame.
+const bootChallenge = readChallengeFromUrl();
+if (bootChallenge) {
+  applyDifficulty(bootChallenge.level);
+  currentSeed = bootChallenge.seed;
+} else {
+  applyDifficulty(currentDifficulty);
+}
 buildGallery();
 requestAnimationFrame(() => {
-  newGame();
+  newGame({ preserveSeed: bootChallenge !== null });
   loadStatsForDisplay();
   syncTimerToggle();
   applyTimerVisibility();
