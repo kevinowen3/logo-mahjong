@@ -610,7 +610,9 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
   #winModal .modal-content > h2,
   #winModal .modal-content > p,
   #winModal .modal-content > .win-buttons { animation: none !important; }
-  .tile.matched { transition: none; }
+  /* .tile.matched intentionally NOT overridden here — the match fade is
+     gameplay feedback (showing which two tiles got cleared) rather than
+     decorative motion, so it runs even when reduced-motion is requested. */
 }
 
 /* ─── Difficulty chooser modal ─── */

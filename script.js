@@ -1210,7 +1210,11 @@ function matchPair(uidA, uidB) {
   setStatus(`Matched: ${logo.name}!`);
 
   isMatching = true;
-  const animMs = prefersReducedMotion() ? 0 : 350;
+  // Match-fade is gameplay feedback (showing which two tiles got cleared),
+  // not decorative motion — so it runs unconditionally. prefers-reduced-motion
+  // still suppresses the truly decorative pieces (confetti, modal entrance,
+  // trophy pop, sparkles, count-up).
+  const animMs = 350;
   setTimeout(() => {
     isMatching = false;
     render();
