@@ -442,7 +442,18 @@ function chooseDifficulty(d) {
 const IS_DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(globalThis.location.hostname)
             || globalThis.location.protocol === 'file:';
 
-const stats = { launches: null, wins: null };
+const stats = { launches: null, wins: null, launchesToday: null, winsToday: null };
+
+// "Today" is anchored to America/Denver so every viewer worldwide agrees on
+// the same day boundary (rolls over at Kevin's local midnight, DST-aware via
+// the IANA zone). en-CA locale conveniently formats as YYYY-MM-DD.
+const TODAY_TZ = 'America/Denver';
+const todayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TODAY_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+});
+function mountainDayKey() {
+  return todayFormatter.format(new Date());
+}
 
 async function counterFetch(pathParts) {
   try {
@@ -490,8 +501,13 @@ async function maybeBumpPlay() {
   playCountedThisGame = true;
   bumpPersonal('launches');
   if (!IS_DEV) {
-    const v = await counterFetch(['hit', COUNTER_NS, COUNTER_KEYS.launches]);
+    const todayKey = `${COUNTER_KEYS.launches}-${mountainDayKey()}`;
+    const [v, vToday] = await Promise.all([
+      counterFetch(['hit', COUNTER_NS, COUNTER_KEYS.launches]),
+      counterFetch(['hit', COUNTER_NS, todayKey]),
+    ]);
     if (v != null) stats.launches = v;
+    if (vToday != null) stats.launchesToday = vToday;
   }
   renderAboutStats();
 }
@@ -499,19 +515,30 @@ async function maybeBumpPlay() {
 async function bumpWins() {
   bumpPersonal('wins');
   if (!IS_DEV) {
-    const v = await counterFetch(['hit', COUNTER_NS, COUNTER_KEYS.wins]);
+    const todayKey = `${COUNTER_KEYS.wins}-${mountainDayKey()}`;
+    const [v, vToday] = await Promise.all([
+      counterFetch(['hit', COUNTER_NS, COUNTER_KEYS.wins]),
+      counterFetch(['hit', COUNTER_NS, todayKey]),
+    ]);
     if (v != null) stats.wins = v;
+    if (vToday != null) stats.winsToday = vToday;
   }
   renderAboutStats();
 }
 
 async function loadStatsForDisplay() {
-  const [launches, wins] = await Promise.all([
+  const launchesTodayKey = `${COUNTER_KEYS.launches}-${mountainDayKey()}`;
+  const winsTodayKey = `${COUNTER_KEYS.wins}-${mountainDayKey()}`;
+  const [launches, wins, launchesToday, winsToday] = await Promise.all([
     counterFetch(['get', COUNTER_NS, COUNTER_KEYS.launches]),
     counterFetch(['get', COUNTER_NS, COUNTER_KEYS.wins]),
+    counterFetch(['get', COUNTER_NS, launchesTodayKey]),
+    counterFetch(['get', COUNTER_NS, winsTodayKey]),
   ]);
   stats.launches = launches;
   stats.wins = wins;
+  stats.launchesToday = launchesToday;
+  stats.winsToday = winsToday;
   renderAboutStats();
 }
 
@@ -678,7 +705,13 @@ function formatCount(n) {
 function renderAboutStats() {
   if (!aboutStatsEl) return;
   const p = readPersonal();
-  const sharedLine = `Game played ${formatCount(stats.launches)} times · Solved ${formatCount(stats.wins)} times`;
+  // Today suffix is only appended when the all-time value loaded; that way a
+  // failed network read shows "—" alone rather than "— times (0 today)". A
+  // null today-count after a successful all-time read just means today's key
+  // hasn't been hit yet (first play of the day) → render as 0.
+  const playsToday = stats.launches == null ? '' : ` (${formatCount(stats.launchesToday ?? 0)} today)`;
+  const winsToday = stats.wins == null ? '' : ` (${formatCount(stats.winsToday ?? 0)} today)`;
+  const sharedLine = `Game played ${formatCount(stats.launches)} times${playsToday} · Solved ${formatCount(stats.wins)} times${winsToday}`;
   const personalBits = [
     `Your plays: ${formatCount(p.launches ?? 0)}`,
     `Your wins: ${formatCount(p.wins ?? 0)}`,
