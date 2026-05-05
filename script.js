@@ -486,6 +486,18 @@ function bumpPersonal(kind) {
   const p = readPersonal();
   p[kind] = (p[kind] ?? 0) + 1;
   p.lastPlayedMs = Date.now();
+  // Per-day plays/wins, anchored to the same Mountain-Time day boundary as
+  // the shared abacus today-counters so the personal "(N today)" suffix
+  // rolls over at the same instant. If the stored date doesn't match
+  // today, reset the day buckets before incrementing.
+  const today = mountainDayKey();
+  if (p.todayDate !== today) {
+    p.todayDate = today;
+    p.launchesToday = 0;
+    p.winsToday = 0;
+  }
+  if (kind === 'launches') p.launchesToday = (p.launchesToday ?? 0) + 1;
+  else if (kind === 'wins') p.winsToday = (p.winsToday ?? 0) + 1;
   writePersonal(p);
 }
 function recordWinTime(elapsedMs) {
@@ -712,9 +724,15 @@ function renderAboutStats() {
   const playsToday = stats.launches == null ? '' : ` (${formatCount(stats.launchesToday ?? 0)} today)`;
   const winsToday = stats.wins == null ? '' : ` (${formatCount(stats.winsToday ?? 0)} today)`;
   const sharedLine = `Game played ${formatCount(stats.launches)} times${playsToday} · Solved ${formatCount(stats.wins)} times${winsToday}`;
+  // Personal "today" comes from localStorage so it's always known (no
+  // network failure mode). Stored buckets only count toward "today" when
+  // p.todayDate matches the current Mountain-Time day; otherwise show 0.
+  const todayKey = mountainDayKey();
+  const personalLaunchesToday = p.todayDate === todayKey ? (p.launchesToday ?? 0) : 0;
+  const personalWinsToday = p.todayDate === todayKey ? (p.winsToday ?? 0) : 0;
   const personalBits = [
-    `Your plays: ${formatCount(p.launches ?? 0)}`,
-    `Your wins: ${formatCount(p.wins ?? 0)}`,
+    `Your plays: ${formatCount(p.launches ?? 0)} (${formatCount(personalLaunchesToday)} today)`,
+    `Your wins: ${formatCount(p.wins ?? 0)} (${formatCount(personalWinsToday)} today)`,
   ];
   const best = p.bestTimes?.[currentDifficulty];
   if (best != null) {
@@ -1942,6 +1960,27 @@ function _vTestMigration() {
   _vAssert(r, 'corrupted JSON returns empty object', Object.keys(p).length === 0);
   globalThis.localStorage.setItem(LS_DIFFICULTY_KEY, 'easy');
   _vAssert(r, 'invalid difficulty falls back to advanced', readDifficulty() === 'advanced');
+  // Per-day plays/wins bucket: bump initialises todayDate + per-day fields
+  // and rolls over when stored date no longer matches mountainDayKey().
+  const today = mountainDayKey();
+  globalThis.localStorage.removeItem(LS_STATS_KEY);
+  bumpPersonal('launches');
+  p = readPersonal();
+  _vAssert(r, 'bumpPersonal(launches) sets todayDate + launchesToday=1',
+    p.todayDate === today && p.launchesToday === 1 && p.winsToday === 0);
+  bumpPersonal('wins');
+  p = readPersonal();
+  _vAssert(r, 'bumpPersonal(wins) increments winsToday without touching launchesToday',
+    p.launchesToday === 1 && p.winsToday === 1);
+  // Simulate yesterday's data: stale todayDate should reset on next bump.
+  globalThis.localStorage.setItem(LS_STATS_KEY, JSON.stringify({
+    launches: 5, wins: 3, todayDate: '2000-01-01', launchesToday: 99, winsToday: 88,
+  }));
+  bumpPersonal('launches');
+  p = readPersonal();
+  _vAssert(r, 'stale todayDate triggers rollover (launches=1 today, wins=0 today)',
+    p.todayDate === today && p.launchesToday === 1 && p.winsToday === 0
+    && p.launches === 6 && p.wins === 3);
   return _vSummarize('testMigration', r);
 }
 
