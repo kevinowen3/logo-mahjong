@@ -379,10 +379,16 @@ let pausedAtMs = null;
 let playCountedThisGame = false;
 let shuffleCount = 0;
 let hintCount = 0;
-// Set when the player chooses "Same Board" from the win modal: the elapsed
-// time of the just-finished win, in ms, becomes the time to beat for the
-// next attempt on this seed. Cleared by any non-replay newGame() call.
-let replayTargetMs = null;
+// Targets to beat. Set by:
+//   - "Same Board" win-modal button (sets targetMs only — replay path).
+//   - Boot from a 5-segment challenge URL (sets all three — challenge path).
+// targetMs alone (replay) shows just the time delta; targetHints/targetShuffles
+// being non-null indicates a challenge boot, which unlocks the start modal,
+// the timer-overlay meta sub-line, and the inline shuffles/hints deltas in
+// the win modal. newGame() resets these per opts (see below).
+let targetMs = null;
+let targetHints = null;
+let targetShuffles = null;
 
 // DOM refs
 const boardEl = document.getElementById('board');
@@ -400,6 +406,8 @@ const winLevelEl = document.getElementById('winLevel');
 const winShufflesEl = document.getElementById('winShuffles');
 const winHintsEl = document.getElementById('winHints');
 const winDeltaEl = document.getElementById('winDelta');
+const winShufflesDeltaEl = document.getElementById('winShufflesDelta');
+const winHintsDeltaEl = document.getElementById('winHintsDelta');
 const winConfettiEl = document.getElementById('winConfetti');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const showTimerToggleEl = document.getElementById('showTimerToggle');
@@ -654,33 +662,77 @@ function animateCount(el, fromVal, toVal, durationMs, formatter, onFrameId) {
   onFrameId(requestAnimationFrame(tick));
 }
 
-function showWinModal({ levelLabel, elapsedMs, shuffles, hints, targetMs }) {
+function renderInlineDelta(el, actual, target) {
+  if (!el) return;
+  if (target == null || !Number.isFinite(target)) {
+    el.classList.add('hidden');
+    el.classList.remove('faster', 'slower');
+    el.textContent = '';
+    return;
+  }
+  const d = actual - target;
+  let text;
+  if (d === 0) text = ' (same)';
+  else if (d < 0) text = ` (${Math.abs(d)} fewer)`;
+  else text = ` (${d} more)`;
+  el.textContent = text;
+  el.classList.toggle('faster', d < 0);
+  el.classList.toggle('slower', d > 0);
+  el.classList.remove('hidden');
+}
+
+// Build the win-delta wording. isChallenge=true when this is a challenge
+// boot (different opponent label, no "New best!" prefix). isChallenge=false
+// is the Same-Game replay path.
+function formatTimeDeltaText(elapsedMs, target, isChallenge) {
+  const delta = elapsedMs - target;
+  const absStr = formatStopwatch(Math.abs(delta));
+  const targetStr = formatStopwatch(target);
+  if (delta === 0) {
+    return isChallenge
+      ? `Tied your friend's time (${targetStr}).`
+      : `Tied your last attempt (${targetStr}).`;
+  }
+  const opponentLabel = isChallenge ? 'your friend' : 'your last attempt';
+  if (delta < 0) {
+    const newBestPrefix = isChallenge ? '' : 'New best! ';
+    return `${newBestPrefix}${absStr} faster than ${opponentLabel} (was ${targetStr}).`;
+  }
+  return `${absStr} slower than ${opponentLabel} (was ${targetStr}).`;
+}
+
+function renderTimeDelta(el, elapsedMs, target, isChallenge) {
+  if (!el) return;
+  if (target == null || !Number.isFinite(target)) {
+    el.classList.add('hidden');
+    el.classList.remove('faster', 'slower');
+    el.textContent = '';
+    return;
+  }
+  const delta = elapsedMs - target;
+  el.textContent = formatTimeDeltaText(elapsedMs, target, isChallenge);
+  el.classList.toggle('faster', delta < 0);
+  el.classList.toggle('slower', delta > 0);
+  el.classList.remove('hidden');
+}
+
+function showWinModal({ levelLabel, elapsedMs, shuffles, hints, targetMs, targetHints, targetShuffles }) {
   cancelWinAnimations();
   if (winLevelEl) winLevelEl.textContent = levelLabel;
   if (winTimeEl) winTimeEl.textContent = formatDuration(0);
   if (winShufflesEl) winShufflesEl.textContent = '0';
   if (winHintsEl) winHintsEl.textContent = '0';
-  if (winDeltaEl) {
-    if (targetMs != null && Number.isFinite(targetMs)) {
-      const delta = elapsedMs - targetMs;
-      const absStr = formatStopwatch(Math.abs(delta));
-      const targetStr = formatStopwatch(targetMs);
-      const faster = delta < 0;
-      const tied = delta === 0;
-      let text;
-      if (tied) text = `Tied your last attempt (${targetStr}).`;
-      else if (faster) text = `New best! ${absStr} faster than your last attempt (was ${targetStr}).`;
-      else text = `${absStr} slower than your last attempt (was ${targetStr}).`;
-      winDeltaEl.textContent = text;
-      winDeltaEl.classList.toggle('faster', faster);
-      winDeltaEl.classList.toggle('slower', !faster && !tied);
-      winDeltaEl.classList.remove('hidden');
-    } else {
-      winDeltaEl.classList.add('hidden');
-      winDeltaEl.classList.remove('faster', 'slower');
-      winDeltaEl.textContent = '';
-    }
-  }
+  // targetHints != null means challenge boot; otherwise this is a Same-Game
+  // replay (or the test harness, which passes none of these). Challenge
+  // wins don't update a personal best automatically, so the "New best!"
+  // prefix is replay-only.
+  const isChallenge = targetHints != null;
+  renderTimeDelta(winDeltaEl, elapsedMs, targetMs, isChallenge);
+  // Challenge-only inline deltas: shown only when the target is set.
+  // Same-Game replay leaves these null (handled in newGame), so the spans
+  // render nothing on a replay win.
+  renderInlineDelta(winShufflesDeltaEl, shuffles, targetShuffles);
+  renderInlineDelta(winHintsDeltaEl, hints, targetHints);
   winModal.classList.remove('hidden');
   spawnConfetti(winConfettiEl);
   countStartTimeoutId = setTimeout(() => {
@@ -761,25 +813,37 @@ function formatStopwatch(ms) {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+function timerMainText() {
+  if (gameStartMs === null) return '0:00';
+  const endMs = gameEndMs ?? (paused ? pausedAtMs : Date.now());
+  const text = formatStopwatch(endMs - gameStartMs);
+  return paused ? `${text} ⏸` : text;
+}
+function timerTargetHtml() {
+  if (targetMs === null) return '';
+  // Replay path leaves targetHints/targetShuffles null, so the meta line is
+  // skipped and the overlay stays time-only — preserving the asymmetry
+  // between replay (time-only) and challenge (full triple).
+  let html = `<span class="timer-target">Beat ${formatStopwatch(targetMs)}</span>`;
+  if (targetHints !== null && targetShuffles !== null) {
+    const hintsWord = targetHints === 1 ? 'hint' : 'hints';
+    const shufflesWord = targetShuffles === 1 ? 'shuffle' : 'shuffles';
+    html += `<span class="timer-target-meta">${targetHints} ${hintsWord} · ${targetShuffles} ${shufflesWord}</span>`;
+  }
+  return html;
+}
 function updateTimerDisplay() {
   if (!timerDisplayEl) return;
-  let mainText;
-  if (gameStartMs === null) {
-    mainText = '0:00';
-    timerDisplayEl.classList.remove('paused');
+  const main = timerMainText();
+  timerDisplayEl.classList.toggle('paused', gameStartMs !== null && paused);
+  // mainText only ever contains digits, ':', a space, and the ⏸ glyph;
+  // formatStopwatch(targetMs) is similarly safe; targetHints/Shuffles are
+  // integers. innerHTML is fine here.
+  const targetHtml = timerTargetHtml();
+  if (targetHtml === '') {
+    timerDisplayEl.textContent = main;
   } else {
-    const endMs = gameEndMs ?? (paused ? pausedAtMs : Date.now());
-    const text = formatStopwatch(endMs - gameStartMs);
-    mainText = paused ? `${text} ⏸` : text;
-    timerDisplayEl.classList.toggle('paused', paused);
-  }
-  // mainText only ever contains digits, ':', a space, and the ⏸ glyph.
-  // formatStopwatch(replayTargetMs) is similarly safe — both are produced
-  // from numeric input. innerHTML is fine here.
-  if (replayTargetMs === null) {
-    timerDisplayEl.textContent = mainText;
-  } else {
-    timerDisplayEl.innerHTML = `${mainText}<span class="timer-target">Beat ${formatStopwatch(replayTargetMs)}</span>`;
+    timerDisplayEl.innerHTML = `${main}${targetHtml}`;
   }
 }
 function toggleTimerPause() {
@@ -1347,7 +1411,9 @@ function checkEndConditions() {
     const finalElapsedMs = elapsedMs;
     const finalShuffles = shuffleCount;
     const finalHints = hintCount;
-    const finalTargetMs = replayTargetMs;
+    const finalTargetMs = targetMs;
+    const finalTargetHints = targetHints;
+    const finalTargetShuffles = targetShuffles;
     playWinSound();
     setTimeout(() => showWinModal({
       levelLabel: LEVEL_LABELS[currentDifficulty],
@@ -1355,6 +1421,8 @@ function checkEndConditions() {
       shuffles: finalShuffles,
       hints: finalHints,
       targetMs: finalTargetMs,
+      targetHints: finalTargetHints,
+      targetShuffles: finalTargetShuffles,
     }), 150);
     return;
   }
@@ -1429,17 +1497,40 @@ function doShuffle() {
 }
 
 // ── New Game ──
-// opts.preserveSeed = true keeps the existing currentSeed (used only by the
-// boot-with-challenge-URL path so the URL's seed actually drives the board).
-// opts.tryAgain = true also keeps the seed AND keeps replayTargetMs intact
-// (used only by the "Same Board" win-modal button so the player races their
-// just-finished time on an identical layout).
+// opts.preserveSeed = true keeps the existing currentSeed AND every target
+// (used only by the boot-with-challenge-URL path; boot wires the targets
+// before calling newGame() so the timer overlay and start modal can show
+// them). opts.tryAgain = true also keeps the seed AND keeps targetMs intact
+// (used only by the "Same Game" win-modal button so the player races their
+// just-finished time on an identical layout) — but it clears targetHints
+// and targetShuffles since replay is time-only by design.
 // All other callers (toolbar New Game, win/game-over modals, difficulty
-// chooser) get a fresh random seed AND a cleaned URL — clicking New Game
-// after playing a challenge always starts a fresh game, not a replay.
+// chooser) get a fresh random seed, cleared targets, and a cleaned URL.
+function resetTargetsForNewGame(isReplay, isChallengeBoot) {
+  // Replay keeps targetMs (the time to beat) but never has a hints /
+  // shuffles target — those are challenge-only. Challenge boot keeps all
+  // three (boot wires them before calling newGame). Default clears all.
+  if (isChallengeBoot) return;
+  if (!isReplay) targetMs = null;
+  targetHints = null;
+  targetShuffles = null;
+}
+function clearWinModalDisplay() {
+  if (winTimeEl) winTimeEl.textContent = '—';
+  if (winShufflesEl) winShufflesEl.textContent = '0';
+  if (winHintsEl) winHintsEl.textContent = '0';
+  for (const el of [winDeltaEl, winShufflesDeltaEl, winHintsDeltaEl]) {
+    if (!el) continue;
+    el.classList.add('hidden');
+    el.classList.remove('faster', 'slower');
+    el.textContent = '';
+  }
+  if (winLevelEl) winLevelEl.textContent = LEVEL_LABELS[currentDifficulty];
+}
 function newGame(opts = {}) {
   const isReplay = opts.tryAgain === true;
-  if (!opts.preserveSeed && !isReplay) {
+  const isChallengeBoot = opts.preserveSeed === true;
+  if (!isChallengeBoot && !isReplay) {
     currentSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
     // Strip ?challenge= from the URL so refresh starts a fresh game rather
     // than re-triggering the challenge that originally loaded the page.
@@ -1447,7 +1538,7 @@ function newGame(opts = {}) {
       try { history.replaceState({}, '', location.pathname); } catch {}
     }
   }
-  if (!isReplay) replayTargetMs = null;
+  resetTargetsForNewGame(isReplay, isChallengeBoot);
   hintPair = null; hintIndex = 0;
   hideWinModal();
   gameOverModal.classList.add('hidden');
@@ -1462,15 +1553,7 @@ function newGame(opts = {}) {
   shuffleCount = 0;
   hintCount = 0;
   isMatching = false;
-  if (winTimeEl) winTimeEl.textContent = '—';
-  if (winShufflesEl) winShufflesEl.textContent = '0';
-  if (winHintsEl) winHintsEl.textContent = '0';
-  if (winDeltaEl) {
-    winDeltaEl.classList.add('hidden');
-    winDeltaEl.classList.remove('faster', 'slower');
-    winDeltaEl.textContent = '';
-  }
-  if (winLevelEl) winLevelEl.textContent = LEVEL_LABELS[currentDifficulty];
+  clearWinModalDisplay();
   buildTiles();
   setStatus('New game started. Click a free tile to begin.');
   render();
@@ -1535,11 +1618,13 @@ document.getElementById('btnShuffle').addEventListener('click', doShuffle);
 document.getElementById('btnLogos').addEventListener('click', showGallery);
 document.getElementById('btnCloseGallery').addEventListener('click', hideGallery);
 document.getElementById('btnNewAfterWin').addEventListener('click', () => newGame());
-// "Same Board" — replays the just-finished seed, with replayTargetMs set so
-// the timer overlay shows "Beat M:SS" and the next win modal renders a delta.
+// "Same Game" — replays the just-finished seed, with targetMs set so the
+// timer overlay shows "Beat M:SS" and the next win modal renders a delta.
+// Note we read elapsed BEFORE calling newGame() because newGame() zeroes
+// gameStartMs / gameEndMs.
 function tryAgainSameBoard() {
   if (gameStartMs === null || gameEndMs === null) return;
-  replayTargetMs = gameEndMs - gameStartMs;
+  targetMs = gameEndMs - gameStartMs;
   newGame({ tryAgain: true });
 }
 document.getElementById('btnSameBoardAfterWin').addEventListener('click', tryAgainSameBoard);
@@ -1550,7 +1635,14 @@ document.getElementById('btnSameBoardAfterWin').addEventListener('click', tryAga
 // guarantees it), so the URL is well-formed at click time.
 function buildChallengeUrl() {
   const seedB36 = currentSeed.toString(36).toUpperCase();
-  return `${location.origin}${location.pathname}?challenge=${currentDifficulty}-${seedB36}`;
+  // The button only shows in the win modal where gameStartMs and gameEndMs
+  // are both set; the ?? Date.now() is a defensive fallback that should
+  // never actually trigger.
+  const elapsedMs = (gameEndMs ?? Date.now()) - gameStartMs;
+  const timeB36 = elapsedMs.toString(36).toUpperCase();
+  const hintsB36 = hintCount.toString(36).toUpperCase();
+  const shufflesB36 = shuffleCount.toString(36).toUpperCase();
+  return `${location.origin}${location.pathname}?challenge=${currentDifficulty}-${seedB36}-${timeB36}-${hintsB36}-${shufflesB36}`;
 }
 async function shareChallenge() {
   const btn = document.getElementById('btnChallengeFriend');
@@ -1619,6 +1711,23 @@ function maybeShowFirstVisitHelp() {
     showAbout('help');
   } catch {}
 }
+
+// ── Challenge start modal wiring ──
+// Only shown when the page boots from a 5-segment ?challenge= URL. The
+// modal opens after newGame() runs (so the board is rendered), but before
+// the first tile click stamps gameStartMs — the player can read the
+// targets without burning timer time.
+const challengeStartModal = document.getElementById('challengeStartModal');
+function hideChallengeStartModal() {
+  challengeStartModal.classList.add('hidden');
+}
+function showChallengeStartModal(tMs, tHints, tShuffles) {
+  document.getElementById('challengeStartTime').textContent = formatStopwatch(tMs);
+  document.getElementById('challengeStartHints').textContent = String(tHints);
+  document.getElementById('challengeStartShuffles').textContent = String(tShuffles);
+  challengeStartModal.classList.remove('hidden');
+}
+document.getElementById('btnStartChallenge').addEventListener('click', hideChallengeStartModal);
 
 // ── Difficulty modal wiring ──
 const difficultyModal = document.getElementById('difficultyModal');
@@ -1736,6 +1845,7 @@ document.addEventListener('keydown', (e) => {
     hideGallery();
     hideDifficultyModal();
     hideWinModal();
+    hideChallengeStartModal();
     gameOverModal.classList.add('hidden');
     deselectTile();
   }
@@ -1793,23 +1903,41 @@ screen.orientation?.addEventListener?.('change', () => {
 });
 
 // ── Challenge-URL parsing ──
-// URL format: ?challenge=<level>-<seedBase36>  e.g. ?challenge=advanced-3F7K2P
-// Returns { level, seed } on a valid match or null otherwise. Validation is
-// strict: level must be in DIFFICULTIES, seed must parse to a non-negative
-// integer that fits in 32 bits. Anything malformed is silently ignored so
-// a typo in the link just falls through to a normal random game.
-function readChallengeFromUrl() {
+// Two URL formats accepted (anything else returns null and falls through to
+// a normal random game):
+//   Legacy 2-segment:  ?challenge=<level>-<seedB36>
+//   With targets 5-segment:  ?challenge=<level>-<seedB36>-<timeMsB36>-<hintsB36>-<shufflesB36>
+// All numeric fields are uppercase base-36. The 5-segment form lets the
+// shared link carry the challenger's stats so the friend sees targets at
+// game start and a full delta on win. The 2-segment form is preserved so
+// every previously-shared URL keeps working unchanged.
+//
+// rawParam is optional and exists for validator testability — production
+// boot calls with no args and reads location.search.
+function readChallengeFromUrl(rawParam = null) {
   try {
-    const param = new URLSearchParams(location.search).get('challenge');
+    const param = rawParam ?? new URLSearchParams(location.search).get('challenge');
     if (!param) return null;
-    const dash = param.indexOf('-');
-    if (dash < 1) return null;
-    const level = param.slice(0, dash);
-    const seedStr = param.slice(dash + 1);
+    const parts = param.split('-');
+    if (parts.length !== 2 && parts.length !== 5) return null;
+    const [level, seedStr] = parts;
     if (!DIFFICULTIES.has(level)) return null;
     const seed = Number.parseInt(seedStr, 36);
     if (!Number.isFinite(seed) || seed < 0 || seed > 0xFFFFFFFF) return null;
-    return { level, seed: seed >>> 0 };
+    const out = { level, seed: seed >>> 0 };
+    if (parts.length === 5) {
+      const [, , timeStr, hintsStr, shufflesStr] = parts;
+      const tMs = Number.parseInt(timeStr, 36);
+      const tHints = Number.parseInt(hintsStr, 36);
+      const tShuffles = Number.parseInt(shufflesStr, 36);
+      // parseInt happily returns negatives for "-..." inputs, so reject
+      // anything that isn't a finite non-negative integer.
+      if (![tMs, tHints, tShuffles].every(n => Number.isFinite(n) && n >= 0)) return null;
+      out.targetMs = tMs;
+      out.targetHints = tHints;
+      out.targetShuffles = tShuffles;
+    }
+    return out;
   } catch {
     return null;
   }
@@ -1824,6 +1952,14 @@ const bootChallenge = readChallengeFromUrl();
 if (bootChallenge) {
   applyDifficulty(bootChallenge.level);
   currentSeed = bootChallenge.seed;
+  // 5-segment URL: stash targets BEFORE newGame({preserveSeed:true}). The
+  // preserveSeed branch leaves these alone, so the timer overlay and the
+  // start modal can see them once the rAF fires.
+  if (bootChallenge.targetMs != null) {
+    targetMs = bootChallenge.targetMs;
+    targetHints = bootChallenge.targetHints;
+    targetShuffles = bootChallenge.targetShuffles;
+  }
 } else {
   applyDifficulty(currentDifficulty);
 }
@@ -1834,7 +1970,14 @@ requestAnimationFrame(() => {
   syncTimerToggle();
   applyTimerVisibility();
   setInterval(updateTimerDisplay, 1000);
-  maybeShowFirstVisitHelp();
+  // Start modal: only on 5-segment challenge boots. Legacy 2-segment URLs
+  // (no targets) skip this so existing shared links keep their identical
+  // first-paint behavior.
+  if (bootChallenge?.targetMs == null) {
+    maybeShowFirstVisitHelp();
+  } else {
+    showChallengeStartModal(bootChallenge.targetMs, bootChallenge.targetHints, bootChallenge.targetShuffles);
+  }
   loadApplauseAsset();
 });
 
@@ -1984,6 +2127,74 @@ function _vTestMigration() {
   return _vSummarize('testMigration', r);
 }
 
+function _vTestChallengeUrl() {
+  const r = [];
+  // Legacy 2-segment: parses to {level, seed}, no targets.
+  {
+    const out = readChallengeFromUrl('advanced-3F7K2P');
+    _vAssert(r, 'legacy 2-segment parses level + seed',
+      out?.level === 'advanced' && Number.isFinite(out?.seed) && out?.targetMs === undefined);
+  }
+  // New 5-segment: all five fields populated.
+  {
+    const out = readChallengeFromUrl('advanced-3F7K2P-FU0-3-1');
+    const expectMs = Number.parseInt('FU0', 36);
+    _vAssert(r, '5-segment parses targets',
+      out?.targetMs === expectMs && out?.targetHints === 3 && out?.targetShuffles === 1);
+  }
+  // 0 targets are a valid challenge (perfect game).
+  {
+    const out = readChallengeFromUrl('beginner-1-0-0-0');
+    _vAssert(r, '5-segment with zero targets is valid',
+      out?.targetMs === 0 && out?.targetHints === 0 && out?.targetShuffles === 0);
+  }
+  // Invalid level → null.
+  _vAssert(r, "invalid level rejects", readChallengeFromUrl('easy-1-1-1-1') === null);
+  // Wrong segment count (4) → null.
+  _vAssert(r, '4-segment rejects',
+    readChallengeFromUrl('advanced-3F7K2P-FU0-3') === null);
+  // 6-segment → null.
+  _vAssert(r, '6-segment rejects',
+    readChallengeFromUrl('advanced-3F7K2P-FU0-3-1-extra') === null);
+  // 3-segment → null.
+  _vAssert(r, '3-segment rejects',
+    readChallengeFromUrl('advanced-3F7K2P-FU0') === null);
+  // Empty / null / no challenge param.
+  _vAssert(r, 'empty rejects', readChallengeFromUrl('') === null);
+  // Empty target slot → parseInt('', 36) returns NaN → fails Number.isFinite.
+  _vAssert(r, 'empty target slot rejects',
+    readChallengeFromUrl('advanced-3F7K2P--3-1') === null);
+  // Non-numeric seed → null. Note: '!!!' isn't a valid base-36 string, so
+  // parseInt returns NaN.
+  _vAssert(r, 'non-base36 seed rejects',
+    readChallengeFromUrl('advanced-!!!-FU0-3-1') === null);
+
+  // newGame lifecycle: opts behavior on the three target vars.
+  // Save originals so we don't perturb live state during the test run.
+  const savedTargetMs = targetMs;
+  const savedTargetHints = targetHints;
+  const savedTargetShuffles = targetShuffles;
+  try {
+    targetMs = 60000; targetHints = 4; targetShuffles = 2;
+    newGame();
+    _vAssert(r, 'newGame() default clears all three targets',
+      targetMs === null && targetHints === null && targetShuffles === null);
+    targetMs = 60000; targetHints = 4; targetShuffles = 2;
+    newGame({ tryAgain: true });
+    _vAssert(r, 'newGame({tryAgain}) keeps targetMs, clears hints/shuffles',
+      targetMs === 60000 && targetHints === null && targetShuffles === null);
+    targetMs = 60000; targetHints = 4; targetShuffles = 2;
+    newGame({ preserveSeed: true });
+    _vAssert(r, 'newGame({preserveSeed}) keeps all three targets',
+      targetMs === 60000 && targetHints === 4 && targetShuffles === 2);
+  } finally {
+    targetMs = savedTargetMs;
+    targetHints = savedTargetHints;
+    targetShuffles = savedTargetShuffles;
+  }
+  return _vSummarize('testChallengeUrl', r);
+}
+
 function _vTestLevelTransitions() {
   const r = [];
   const cases = [
@@ -2035,6 +2246,7 @@ globalThis.__validateLogo = function __validateLogo() {
       _vTestLayouts(),
       _vTestFreeTileLogic(),
       _vTestMigration(),
+      _vTestChallengeUrl(),
       _vTestLevelTransitions(),
     );
   } finally {

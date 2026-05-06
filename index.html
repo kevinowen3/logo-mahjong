@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Logo</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=29">
+  <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
   <div id="app">
@@ -117,7 +117,7 @@
         <p>Logo &mdash; a solitaire game patterned after the Chinese tile game called Mahjong.</p>
         <p>Written by Kevin Owen</p>
         <p>with help from Claude Code</p>
-        <p class="about-date">Date: 5 May 2026</p>
+        <p class="about-date">Date: 6 May 2026</p>
         <label class="about-toggle"><input type="checkbox" id="showTimerToggle"> Show elapsed time during play</label>
         <p class="about-hint">To pause the timer, click on the elapsed time displayed.</p>
         <label class="about-toggle"><input type="checkbox" id="sfxToggle"> Play sound effects</label>
@@ -166,12 +166,25 @@
       <p class="win-level">Level: <span id="winLevel">&mdash;</span></p>
       <p class="win-time" id="winTime">Finished in <strong>&mdash;</strong></p>
       <p class="win-delta hidden" id="winDelta"></p>
-      <p class="win-shuffles">Shuffles: <strong id="winShuffles">0</strong></p>
-      <p class="win-hints">Hints: <strong id="winHints">0</strong></p>
+      <p class="win-shuffles">Shuffles: <strong id="winShuffles">0</strong><span id="winShufflesDelta" class="win-shuffles-delta hidden"></span></p>
+      <p class="win-hints">Hints: <strong id="winHints">0</strong><span id="winHintsDelta" class="win-hints-delta hidden"></span></p>
       <div class="win-buttons">
         <button id="btnChallengeFriend" class="btn-secondary">Challenge a Friend</button>
         <button id="btnSameBoardAfterWin" title="Play this same game again to beat your time">Same Game</button>
         <button id="btnNewAfterWin">New Game</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="challengeStartModal" class="modal-overlay hidden">
+    <div class="modal-content challenge-start-content">
+      <h2>You've been challenged!</h2>
+      <p>Try to beat your friend's:</p>
+      <p class="challenge-target-line">Time: <strong id="challengeStartTime">&mdash;</strong></p>
+      <p class="challenge-target-line">Hints used: <strong id="challengeStartHints">&mdash;</strong></p>
+      <p class="challenge-target-line">Shuffles used: <strong id="challengeStartShuffles">&mdash;</strong></p>
+      <div class="modal-buttons">
+        <button id="btnStartChallenge">Start</button>
       </div>
     </div>
   </div>
@@ -188,6 +201,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=37"></script>
+  <script src="script.js?v=38"></script>
 </body>
 </html>

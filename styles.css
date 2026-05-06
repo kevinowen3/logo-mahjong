@@ -149,6 +149,18 @@ html, body {
   letter-spacing: 0.3px;
   color: #ffd97a;
 }
+/* Challenge-only meta sub-line under "Beat M:SS": shows the friend's
+   hints/shuffles target. Slightly smaller and dimmer so it reads as
+   tertiary info — the time is the main target, this is "and also …". */
+.timer-display .timer-target-meta {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-top: 1px;
+  letter-spacing: 0.3px;
+  color: #ffd97a;
+}
 
 /* Bottom-right available-pairs pill — only shown in fullscreen, where the
    status bar is hidden. Mirrors the timer's visual treatment so the two
@@ -480,6 +492,31 @@ body.is-fullscreen .free-pairs-overlay { display: block; }
   font-size: 0.95rem;
 }
 .modal-content .win-hints strong { color: #222; }
+/* Inline challenge deltas (e.g. "(1 fewer)") shown after the count when
+   playing a 5-segment challenge URL. Reuse .faster / .slower color tokens
+   already defined for .win-delta. */
+.modal-content .win-shuffles-delta,
+.modal-content .win-hints-delta {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #b08020;
+  font-weight: 500;
+}
+.modal-content .win-shuffles-delta.faster,
+.modal-content .win-hints-delta.faster { color: #1a7c3a; }
+.modal-content .win-shuffles-delta.slower,
+.modal-content .win-hints-delta.slower { color: #a8651a; }
+.modal-content .win-shuffles-delta.hidden,
+.modal-content .win-hints-delta.hidden { display: none; }
+/* Challenge start modal: line styling parallels .win-time so the three
+   target lines (time / hints / shuffles) read as a uniform block. */
+.modal-content.challenge-start-content { padding: 1.75rem 2rem; max-width: 380px; }
+.modal-content .challenge-target-line {
+  margin: 0.4rem 0;
+  color: #444;
+  font-size: 0.95rem;
+}
+.modal-content .challenge-target-line strong { color: #222; }
 .modal-content h2 { margin-bottom: 0.5rem; color: #1a5c30; }
 .modal-content h2.game-over-heading { color: #a83232; }
 .modal-content p  { margin-bottom: 1.2rem; color: #555; }

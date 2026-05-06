@@ -131,20 +131,38 @@ Layout builders: `buildAdvancedLayout()`, `buildIntermediateLayout()`, `buildBeg
 
 ## Challenge URLs (shared games)
 
-Two players can play the **identical starting board** and compare times by sharing a URL like `https://kevinowen3.github.io/logo-mahjong/?challenge=advanced-3F7K2P`. The format is `?challenge=<level>-<seedBase36>` — level is the internal id (`beginner`/`intermediate`/`advanced`), seed is a 32-bit unsigned int rendered in base 36.
+Two players can play the **identical starting board** and compare stats by sharing a URL. The parser accepts two formats:
+
+- **Legacy 2-segment** (no targets): `?challenge=<level>-<seedBase36>` — e.g. `?challenge=advanced-3F7K2P`. Boots the same seeded board with no time / hints / shuffles to chase.
+- **5-segment with targets**: `?challenge=<level>-<seedBase36>-<timeMsB36>-<hintsB36>-<shufflesB36>` — e.g. `?challenge=advanced-3F7K2P-FU0-3-1`. Boots the same board AND records the challenger's stats, so the friend sees a "You've been challenged!" start modal, persistent target sub-lines in the timer overlay during play, and full deltas (time + hints + shuffles) on the win modal.
+
+`buildChallengeUrl()` always emits the 5-segment form (it's only called from the win modal where `gameEndMs`, `hintCount`, `shuffleCount` are valid). The 2-segment form is parsed-only — kept so every previously-shared URL keeps working unchanged. `readChallengeFromUrl(rawParam = null)` accepts an optional explicit string (validator uses this) and rejects any segment count other than 2 or 5; level must be in `DIFFICULTIES`; seed must parse to a non-negative int that fits in 32 bits; numeric targets must each parse to a finite non-negative integer (the `n >= 0` check is mostly defensive — base-36 segments split on `-` can never start with `-`, so a negative parse would only happen if someone hand-crafted a URL with an empty segment, which is already caught by the `Number.isFinite` check on NaN).
 
 **Determinism**: the initial layout is produced by `mulberry32(currentSeed)` (compact 32-bit PRNG, ~6 lines). `shuffle(arr, rng = Math.random)` accepts an optional rng so `buildTiles()` can pass `mulberry32(currentSeed)` for the layout, while `doShuffle()` (in-game shuffle when stuck) keeps the default `Math.random`. **Pinning mulberry32 matters** — any change to the PRNG algorithm would silently break every existing challenge URL by producing different boards from the same seed. Don't swap algorithms without invalidating the share format (e.g. by adding a version prefix). The state-advance line `a |= 0; a = (a + 0x6D2B79F5) | 0;` carries a `// NOSONAR` because SonarLint flags `| 0` as "use Math.trunc instead" — that suggestion is **wrong** here: `| 0` does ToInt32 with mod-2^32 wrap (mulberry32 needs the wrap to walk the state space), while `Math.trunc` keeps Number precision (no wrap) and would silently break the algorithm. The block comment above the line spells this out so a future cleanup pass doesn't strip the NOSONAR.
 
 **Seed lifecycle** — `currentSeed` is module-scope. `newGame(opts = {})` picks a fresh `(Math.random() * 0xFFFFFFFF) >>> 0` seed unless called with `{ preserveSeed: true }` (boot-with-challenge path) or `{ tryAgain: true }` (Same-Game replay path — see "Same-Game replay" below). Every other caller (toolbar New Game, win modal's "New Game", Game Over modal's New Game, difficulty chooser via `startNewGameAt`) gets a fresh seed. The toolbar/modal click handlers wrap `newGame` in arrow functions (`() => newGame()`) so the `MouseEvent` argument doesn't accidentally become `opts`.
 
+**Target lifecycle** — three module-scope vars carry the "stats to beat" through a game: `targetMs` (time), `targetHints`, `targetShuffles`. `newGame()` resets them per opts:
+- Default — clears all three.
+- `tryAgain: true` (Same-Game replay) — keeps `targetMs`, **explicitly clears** `targetHints` and `targetShuffles`. Replay is time-only by design; the asymmetry vs challenge is intentional.
+- `preserveSeed: true` (challenge boot) — keeps all three. The boot block sets them BEFORE calling `newGame({ preserveSeed: true })` so the rAF can show them in the start modal and timer overlay.
+
+The earlier name `replayTargetMs` was renamed to `targetMs` when the challenge-target trio shipped — the var now serves two paths (replay sets only it; challenge sets the trio).
+
 **URL hygiene** — any `newGame()` call without `preserveSeed` AND without `tryAgain` strips `?challenge=` via `history.replaceState({}, '', location.pathname)`. So:
 - Boot from a challenge URL → URL kept → refresh replays the same challenge
 - Click "New Game" (win modal or toolbar) → URL cleaned → fresh random game; subsequent refresh starts a fresh game too
-- Click "Same Game" on the win modal → URL kept (it's a seed-preserving op) → refresh re-runs the same seed but without the replayTargetMs (state is module-scope, not URL-encoded)
+- Click "Same Game" on the win modal → URL kept (it's a seed-preserving op) → refresh re-runs the same seed but without the `targetMs` (state is module-scope, not URL-encoded)
 
-**Boot order matters** — `readChallengeFromUrl()` runs synchronously before the rAF: if it returns `{level, seed}`, `applyDifficulty(level)` and `currentSeed = seed` happen before `requestAnimationFrame`, then the rAF calls `newGame({ preserveSeed: bootChallenge !== null })`. URL parsing is strict: level must be in `DIFFICULTIES`, seed must parse to a non-negative 32-bit int via `parseInt(s, 36)`. Anything malformed silently falls through to a normal random game.
+**Boot order matters** — `readChallengeFromUrl()` runs synchronously before the rAF: if it returns a result, `applyDifficulty(level)` and `currentSeed = seed` happen, and on the 5-segment branch `targetMs / targetHints / targetShuffles` are set too — all before `requestAnimationFrame`. The rAF then calls `newGame({ preserveSeed: bootChallenge !== null })`, which keeps the targets intact (preserveSeed branch). After `newGame()`, the rAF opens `showChallengeStartModal()` if (and only if) the boot was a 5-segment URL — legacy 2-segment URLs skip the start modal so old links keep their original first-paint behavior. The 5-segment boot also skips `maybeShowFirstVisitHelp()` to avoid stacking two modals on first visit.
 
-**Sharing flow** — `#btnChallengeFriend` in the win modal calls `shareChallenge()`, which builds `${origin}${pathname}?challenge=${currentDifficulty}-${seedB36}` and writes it to clipboard via `navigator.clipboard.writeText()`. On success the button text swaps to "Link Copied!" with a `.copied` class for 2 s; on failure (clipboard API blocked, file://, permission denied) it falls back to `globalThis.prompt(..., url)` so the user can copy manually. `currentSeed` is guaranteed non-null at click time because `newGame()` always sets it; the early-return `if (currentSeed === null) return;` is purely defensive.
+**Sharing flow** — `#btnChallengeFriend` in the win modal calls `shareChallenge()`, which builds the 5-segment URL via `buildChallengeUrl()` and writes it to clipboard via `navigator.clipboard.writeText()`. On success the button text swaps to "Link Copied!" with a `.copied` class for 2 s; on failure (clipboard API blocked, file://, permission denied) it falls back to `globalThis.prompt(..., url)` so the user can copy manually. `currentSeed` is guaranteed non-null at click time because `newGame()` always sets it; `gameEndMs` is set when the win modal opens, so all four URL components are valid.
+
+**Challenge start modal** (`#challengeStartModal`) — minimal modal shown only on 5-segment boots: title "You've been challenged!", three target lines (time / hints used / shuffles used), and a single "Start" button that hides the modal. Escape also dismisses (handled in the existing keydown switch). Reuses `.modal-overlay` / `.modal-content` styles plus a small `.challenge-start-content` width override. The modal opens AFTER the board renders but BEFORE the player clicks any tile — `gameStartMs` stays null until first click, so reading the modal doesn't burn timer time.
+
+**Timer overlay during a challenge** — `updateTimerDisplay()` renders the existing `.timer-target` "Beat M:SS" sub-line plus a second `.timer-target-meta` line ("N hints · M shuffles") whenever `targetHints` and `targetShuffles` are both set. Replay leaves them null, so the meta line is skipped on replay and the overlay stays time-only.
+
+**Win-modal challenge wording** — `showWinModal({ targetMs, targetHints, targetShuffles })` branches the time-delta wording on whether `targetHints != null`: challenge boot says "your friend" and omits the "New best!" prefix (challenge wins don't update a personal best automatically). Replay says "your last attempt" and prefixes "New best!" on a faster time. The inline shuffles/hints deltas (`.win-shuffles-delta` / `.win-hints-delta`) render only when their respective targets are set — replay leaves them hidden.
 
 **Personal-best tracking** — challenge games count as normal plays. Clearing a challenge updates `bestTimes[level]` in `localStorage['logo:personal-stats']` like any other win. The deliberate choice: a fast game is a fast game, regardless of how the layout was generated. Time comparison between players is self-reported (text the time after each plays).
 
@@ -152,21 +170,23 @@ Two players can play the **identical starting board** and compare times by shari
 
 After a win, the player can click "Same Game" to replay the just-finished seed and try to improve their time. Implementation rides on the same seed-preserving plumbing as Challenge URLs but without going through the URL. (The button id is `btnSameBoardAfterWin` and the helper function is `tryAgainSameBoard()` — both kept their original names because the underlying concept is "same seeded board"; the user-visible label was changed from "Same Board" to "Same Game" purely for player-facing clarity, since most players think of a play session as a "game" rather than a "board".)
 
-**State** — `replayTargetMs` (module-scope, init `null`) holds the time to beat. Lifecycle:
-- `tryAgainSameBoard()` (wired to `#btnSameBoardAfterWin`) reads `gameEndMs - gameStartMs` BEFORE calling `newGame({ tryAgain: true })`, since `newGame()` zeroes both timestamps. Then sets `replayTargetMs = elapsedMs` and calls `newGame({ tryAgain: true })` which preserves seed AND skips the `replayTargetMs = null` reset.
-- Any other `newGame()` call (without `tryAgain: true`) clears `replayTargetMs`. So clicking "New Game" (win modal or toolbar) ends the replay session.
-- The boot-with-challenge path uses `preserveSeed: true` (NOT `tryAgain: true`) — it's a fresh challenge with no time to beat.
+**State** — `targetMs` (module-scope, init `null`) holds the time to beat. The challenge path also sets `targetHints` / `targetShuffles`; replay leaves those null. Lifecycle:
+- `tryAgainSameBoard()` (wired to `#btnSameBoardAfterWin`) reads `gameEndMs - gameStartMs` BEFORE calling `newGame({ tryAgain: true })`, since `newGame()` zeroes both timestamps. Then sets `targetMs = elapsedMs` and calls `newGame({ tryAgain: true })` which preserves seed AND keeps `targetMs` intact, while explicitly clearing `targetHints` / `targetShuffles` (replay never has those).
+- Any other `newGame()` call (without `tryAgain: true` and without `preserveSeed: true`) clears all three target vars. So clicking "New Game" (win modal or toolbar) ends the replay session AND ends any active challenge.
+- The boot-with-challenge path uses `preserveSeed: true` (NOT `tryAgain: true`) — it's a fresh challenge whose targets were already set by the boot block before `newGame()` ran.
 
-**During play** — `updateTimerDisplay()` switches from `textContent` to `innerHTML` when `replayTargetMs !== null` and appends a `<span class="timer-target">Beat M:SS</span>` sub-line beneath the live time. Styled gold (`#ffd97a`) at 0.7rem to read as "secondary info" without competing with the live counter. The 1 Hz tick rewriting innerHTML is fine — both the live time and target pass through `formatStopwatch()` which only emits digits + `:`, so no XSS surface.
+**During play** — `updateTimerDisplay()` switches from `textContent` to `innerHTML` when `targetMs !== null` and appends a `<span class="timer-target">Beat M:SS</span>` sub-line beneath the live time. Styled gold (`#ffd97a`) at 0.7rem to read as "secondary info" without competing with the live counter. On a challenge boot it ALSO appends a `.timer-target-meta` line ("N hints · M shuffles") so the friend has both targets visible during play. The 1 Hz tick rewriting innerHTML is fine — both the live time and targets pass through `formatStopwatch()` (digits + `:` only) or are rendered from integers, so no XSS surface.
 
-**On the next win** — `checkEndConditions()` captures `replayTargetMs` into a `finalTargetMs` local before the deferred `showWinModal()` call (parallel to how it captures `finalElapsedMs` / `finalShuffles` / `finalHints` — `newGame()` and other interleavings can't clobber the values). `showWinModal({ targetMs })` computes `delta = elapsedMs - targetMs` and renders `.win-delta` with one of three messages:
-- `delta < 0` — "New best! Mm:SS faster than your last attempt (was X:XX)." → `.faster` (green `#1a7c3a`, weight 600)
-- `delta > 0` — "Mm:SS slower than your last attempt (was X:XX)." → `.slower` (orange `#a8651a`, weight 500)
-- `delta === 0` — "Tied your last attempt (X:XX)." → no modifier (gold `#b08020`, rare edge case)
+**On the next win** — `checkEndConditions()` captures `targetMs` / `targetHints` / `targetShuffles` into `finalTargetMs` / `finalTargetHints` / `finalTargetShuffles` locals before the deferred `showWinModal()` call (parallel to how it captures `finalElapsedMs` / `finalShuffles` / `finalHints` — `newGame()` and other interleavings can't clobber the values). `showWinModal({ targetMs, targetHints, targetShuffles })` computes the time delta and renders `.win-delta` with one of three messages. Wording branches on whether `targetHints != null` (challenge boot) vs not (replay):
+- `delta < 0` — replay: "New best! Mm:SS faster than your last attempt (was X:XX)."; challenge: "Mm:SS faster than your friend (was X:XX)." (no "New best!" prefix). → `.faster` (green `#1a7c3a`, weight 600)
+- `delta > 0` — "Mm:SS slower than {your last attempt | your friend} (was X:XX)." → `.slower` (orange `#a8651a`, weight 500)
+- `delta === 0` — "Tied {your last attempt | your friend}'s time (X:XX)." → no modifier (gold `#b08020`, rare edge case)
 
 When `targetMs` is null/undefined, `.win-delta` is `display: none` via the `.hidden` class — fresh games and the Shift+Click test harness both pass through this path silently.
 
-**Reset hooks** — `newGame()` (non-replay path) resets `winDeltaEl` (clears classes, blanks text, adds `.hidden`) so a stale delta line doesn't briefly show before the next modal opens. The reset sits next to the existing `winTimeEl` / `winShufflesEl` / `winHintsEl` resets.
+**Inline shuffles/hints deltas** — On a challenge win, the shuffles and hints rows each carry a sibling span (`.win-shuffles-delta` / `.win-hints-delta`) rendered by `renderInlineDelta()`. Output is "(N more)" / "(N fewer)" / "(same)" colored via the same `.faster` / `.slower` token pair as `.win-delta`. The spans are hidden when their target is null (replay, or a non-challenge fresh win), so replay wins look identical to before this feature shipped — only the time delta line changes color.
+
+**Reset hooks** — `newGame()` (non-replay path) resets `winDeltaEl` AND the two inline delta spans (`winShufflesDeltaEl` / `winHintsDeltaEl`) — clears classes, blanks text, adds `.hidden` — so a stale challenge delta doesn't briefly show before the next modal opens. The reset sits next to the existing `winTimeEl` / `winShufflesEl` / `winHintsEl` resets.
 
 **The replay session is single-target, not all-time-best.** Each replay's target is the previous attempt's time, not the player's all-time best on this seed. So 5:00 → 4:30 → 4:35 shows "5 sec slower" on the third modal, even though 4:30 was the best. This was a deliberate simplicity choice over per-seed best storage; revisit if players ask for it.
 
@@ -213,7 +233,17 @@ A self-contained validator at the bottom of [script.js](script.js) runs ~50 pure
 
 The validator **saves and restores** every global it touches (`currentDifficulty`, `localStorage[LS_STATS_KEY]`, `localStorage[LS_DIFFICULTY_KEY]`) and calls `applyDifficulty(saved.currentDifficulty)` + `newGame()` on exit so the live game is never disturbed. It mutates the module-scope `tiles` while testing `computeFree()` against synthetic layouts; that's fine because `newGame()` rebuilds `tiles` from scratch.
 
-Run it before commit when any of these change: `LOGOS`, `BEGINNER_LOGO_IDS`, `INTERMEDIATE_LOGO_IDS`, the `buildXxxLayout()` functions, `layoutExtents()` / `normalizeLayout()`, `computeFree()` / `findFreePairs()`, `readPersonal()` / `writePersonal()` / `recordWinTime()`, `readDifficulty()` / `writeDifficulty()` / `applyDifficulty()`. It does **not** cover visual look (S22 verification still required), click-driven UX, or production deploy/cache-bust.
+Run it before commit when any of these change: `LOGOS`, `BEGINNER_LOGO_IDS`, `INTERMEDIATE_LOGO_IDS`, the `buildXxxLayout()` functions, `layoutExtents()` / `normalizeLayout()`, `computeFree()` / `findFreePairs()`, `readPersonal()` / `writePersonal()` / `recordWinTime()`, `readDifficulty()` / `writeDifficulty()` / `applyDifficulty()`, `readChallengeFromUrl()` / `buildChallengeUrl()`, or the target-var lifecycle (`targetMs` / `targetHints` / `targetShuffles`) in `newGame()`. It does **not** cover visual look (S22 verification still required), click-driven UX, or production deploy/cache-bust.
+
+## SonarLint cognitive-complexity gotcha
+
+The SonarLint config caps cognitive complexity at 15 per function. Three of our most-touched functions sit just below the cap and have already been refactored once into helpers; **adding another `if` branch to any of them will trip the warning again**:
+
+- `showWinModal` — orchestration only. Wording lives in `formatTimeDeltaText()`; element manipulation in `renderTimeDelta()` (one for the time-delta line) and `renderInlineDelta()` (reused for the shuffles/hints inline spans). New behavior should add a new helper, not a new branch in the body.
+- `updateTimerDisplay` — orchestration only. The main stopwatch text is built in `timerMainText()`; the optional Beat-time + meta sub-line in `timerTargetHtml()`. Add new overlay variations as new helpers.
+- `newGame` — orchestration only. Target-var lifecycle is in `resetTargetsForNewGame(isReplay, isChallengeBoot)`; win-modal element resets are in `clearWinModalDisplay()`. Don't inline new resets — extend the helpers.
+
+The cap is annoying but useful: each of these functions sits at a high-traffic intersection (state-reset, render, modal-show), and a long-tail `if` block would force every reader to load all branches into their head. Helpers keep each call site to one concept.
 
 ## Deploying
 
