@@ -463,26 +463,13 @@ function mountainDayKey() {
   return todayFormatter.format(new Date());
 }
 
-async function counterFetchOnce(pathParts) {
+async function counterFetch(pathParts) {
   try {
     const r = await fetch(`${COUNTER_BASE}/${pathParts.join('/')}`, { cache: 'no-store' });
     if (!r.ok) return null;
     const j = await r.json();
     return j.value ?? null;
   } catch { return null; }
-}
-async function counterFetch(pathParts) {
-  // /get on abacus.jasoncameron.dev has been observed to return HTTP 500
-  // even when /info reports the key exists with a valid value (the key's
-  // TTL has elapsed but the entry hasn't been GC'd yet — /get refuses, but
-  // /info still returns the snapshot). Fall back to /info on /get failure
-  // so a transient or expired-key state still renders a real number rather
-  // than "—". Only the /get path retries — /hit failures stay silent so a
-  // failed bump doesn't double-write on retry.
-  const v = await counterFetchOnce(pathParts);
-  if (v !== null || pathParts[0] !== 'get') return v;
-  const infoParts = ['info', ...pathParts.slice(1)];
-  return await counterFetchOnce(infoParts);
 }
 
 function readPersonal() {
