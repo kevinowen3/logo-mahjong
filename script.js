@@ -420,6 +420,7 @@ const LS_STATS_KEY = 'logo:personal-stats';
 const LS_TIMER_KEY = 'logo:show-timer';
 const LS_DIFFICULTY_KEY = 'logo:difficulty';
 const LS_SFX_KEY = 'logo:sfx-enabled';
+const LS_MATCH_ANIM_KEY = 'logo:match-anim';
 const DIFFICULTIES = new Set(['beginner', 'intermediate', 'advanced']);
 const PLAY_THRESHOLD_PAIRS = 3;
 
@@ -631,6 +632,70 @@ function spawnConfetti(layer, count = CONFETTI_COUNT) {
 function clearConfetti(layer) {
   if (!layer) return;
   layer.replaceChildren();
+}
+
+// Shard spawner — appended as children of a matched tile, each with random
+// outward direction, gravity-pulled final Y, and rotation. CSS keyframe
+// `tileShardFly` (in styles.css) reads --dx / --dy-final / --rot. Removed
+// when the deferred render() clears boardEl.innerHTML. Mix in a few
+// gold-tinted "spark" shards for visual punch.
+const SHARD_COUNT = 18;
+const SHARD_SPARK_FRACTION = 0.35;
+function spawnTileShards(tileEl) {
+  if (!tileEl) return;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < SHARD_COUNT; i++) {
+    const shard = document.createElement('div');
+    shard.className = 'tile-shard';
+    if (Math.random() < SHARD_SPARK_FRACTION) shard.classList.add('shard-spark');
+    const angle = (i / SHARD_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.7;
+    const dist = 110 + Math.random() * 130;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist - 55;
+    const dyFinal = dy + 240;
+    const rot = (Math.random() - 0.5) * 1440;
+    const size = 12 + Math.random() * 22;
+    shard.style.setProperty('--dx', dx.toFixed(0) + 'px');
+    shard.style.setProperty('--dy-final', dyFinal.toFixed(0) + 'px');
+    shard.style.setProperty('--rot', rot.toFixed(0) + 'deg');
+    shard.style.width = size.toFixed(0) + '%';
+    shard.style.height = size.toFixed(0) + '%';
+    shard.style.animationDelay = (Math.random() * 0.04).toFixed(2) + 's';
+    frag.appendChild(shard);
+  }
+  tileEl.appendChild(frag);
+}
+
+// Single-element decorative spawners. Each appends one child to the tile;
+// the CSS keyframe drives the animation. Removed when render() clears the
+// board at the end of the match window.
+function spawnTileFlash(tileEl) {
+  if (!tileEl) return;
+  const flash = document.createElement('div');
+  flash.className = 'tile-flash';
+  tileEl.appendChild(flash);
+}
+function spawnTileShockwave(tileEl) {
+  if (!tileEl) return;
+  const ring = document.createElement('div');
+  ring.className = 'tile-shockwave';
+  tileEl.appendChild(ring);
+}
+function spawnTileSmoke(tileEl) {
+  if (!tileEl) return;
+  const smoke = document.createElement('div');
+  smoke.className = 'tile-smoke';
+  tileEl.appendChild(smoke);
+}
+// Composite explosion: shockwave + flash + smoke + shards, in that DOM
+// order so the painted z-stack reads correctly (smoke behind, shards in
+// front, flash on top).
+function spawnTileExplosion(tileEl) {
+  if (!tileEl) return;
+  spawnTileSmoke(tileEl);
+  spawnTileShockwave(tileEl);
+  spawnTileFlash(tileEl);
+  spawnTileShards(tileEl);
 }
 
 function cancelWinAnimations() {
@@ -876,12 +941,14 @@ function syncTimerToggle() {
 }
 
 // ── Sound effects (Web Audio API) ──
-// Click + match sounds are synthesized inline (no asset files). Win sound
-// is a CC0 applause clip from Wikimedia Commons (assets/applause.mp3, ~49 KB,
-// 4 s mono with built-in fade-out) — preloaded at boot, played via
-// AudioBufferSourceNode. If load or decode fails for any reason (404,
-// offline, decode error, no Web Audio support), playWinSound() falls back
-// to the synthesized playWinFanfare() so the win moment always has audio.
+// Click is synthesized inline (no asset file). Match and win sounds use
+// recorded MP3 clips (assets/match-impact.mp3 — Universfield "Cinematic
+// Impact Hit"; assets/applause.mp3 — CC0 applause from Wikimedia Commons),
+// preloaded at boot and played via AudioBufferSourceNode. If load or decode
+// fails for any reason (404, offline, decode error, no Web Audio support),
+// playMatchShatter() / playWinSound() fall back to their synthesized
+// counterparts (the four-layer explosion / playWinFanfare) so the moments
+// always have audio.
 // Audio context is created lazily on the first playback attempt;
 // constructing inside a click handler satisfies mobile autoplay policy.
 // Mute pref persists in localStorage; defaults ON.
@@ -889,13 +956,30 @@ let audioCtx = null;
 let applauseFetchPromise = null;   // resolves to ArrayBuffer | null (404, network err)
 let applauseDecodePromise = null;  // resolves to AudioBuffer | null (decode err)
 let applauseBuffer = null;         // cached decoded buffer for fast subsequent wins
+let matchImpactFetchPromise = null;
+let matchImpactDecodePromise = null;
+let matchImpactBuffer = null;
 const sfxToggleEl = document.getElementById('sfxToggle');
+const explosionAnimToggleEl = document.getElementById('explosionAnimToggle');
 function readSfxEnabled() {
   try { return globalThis.localStorage.getItem(LS_SFX_KEY) !== '0'; }
   catch { return true; }
 }
 function writeSfxEnabled(on) {
   try { globalThis.localStorage.setItem(LS_SFX_KEY, on ? '1' : '0'); } catch { /* private mode / quota */ }
+}
+// Match animation: 'classic' (350 ms scale-rotate fade — default) or 'enhanced'
+// (the four-layer explosion + recorded impact). User-toggled in the About modal
+// via the "Enable explosion match animation" checkbox; checked = 'enhanced'.
+function readMatchAnim() {
+  try { return globalThis.localStorage.getItem(LS_MATCH_ANIM_KEY) === 'enhanced' ? 'enhanced' : 'classic'; }
+  catch { return 'classic'; }
+}
+function writeMatchAnim(style) {
+  try { globalThis.localStorage.setItem(LS_MATCH_ANIM_KEY, style); } catch { /* private mode / quota */ }
+}
+function applyMatchAnim() {
+  document.body.classList.toggle('classic-anim', readMatchAnim() === 'classic');
 }
 function getOrCreateAudioCtx() {
   if (audioCtx) {
@@ -919,6 +1003,13 @@ function loadApplauseAsset() {
     .catch(() => null);
   return applauseFetchPromise;
 }
+function loadMatchImpactAsset() {
+  if (matchImpactFetchPromise) return matchImpactFetchPromise;
+  matchImpactFetchPromise = fetch('assets/match-impact.mp3?v=1')
+    .then(r => r.ok ? r.arrayBuffer() : null)
+    .catch(() => null);
+  return matchImpactFetchPromise;
+}
 // Returns a promise resolving to the decoded AudioBuffer (or null on
 // fetch/decode failure). Idempotent: caches the decode promise so repeat
 // callers share one decode pass; subsequent calls return the cached buffer.
@@ -935,6 +1026,18 @@ function ensureApplauseDecoded(ctx) {
       .catch(() => null);
   });
   return applauseDecodePromise;
+}
+function ensureMatchImpactDecoded(ctx) {
+  if (matchImpactBuffer) return Promise.resolve(matchImpactBuffer);
+  if (matchImpactDecodePromise) return matchImpactDecodePromise;
+  const fetchPromise = matchImpactFetchPromise || loadMatchImpactAsset();
+  matchImpactDecodePromise = fetchPromise.then(arr => {
+    if (!arr) return null;
+    return ctx.decodeAudioData(arr.slice(0))
+      .then(b => { matchImpactBuffer = b; return b; })
+      .catch(() => null);
+  });
+  return matchImpactDecodePromise;
 }
 function playClick() {
   if (!readSfxEnabled()) return;
@@ -972,6 +1075,118 @@ function playMatch() {
   };
   note(784, 0, 0.18);      // G5
   note(1047, 0.09, 0.22);  // C6
+}
+// Match explosion sound: prefer the recorded "Cinematic Impact Hit" clip;
+// fall back to the synthesized four-layer burst on fetch/decode failure or
+// no Web Audio support. Async because decode hasn't necessarily resolved at
+// the first match — the synth fallback covers the gap silently.
+async function playMatchShatter() {
+  if (!readSfxEnabled()) return;
+  const ctx = getOrCreateAudioCtx();
+  if (!ctx) { playMatchShatterSynth(); return; }
+  if (matchImpactBuffer) { playMatchImpactBuffer(ctx, matchImpactBuffer); return; }
+  const buf = await ensureMatchImpactDecoded(ctx);
+  if (!buf) { playMatchShatterSynth(); return; }
+  playMatchImpactBuffer(ctx, buf);
+}
+function playMatchImpactBuffer(ctx, buf) {
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const gain = ctx.createGain();
+  // 0.4 keeps the impact audible but well below the click/win bus levels —
+  // the source MP3 is mastered loud and at full gain it dominated the room.
+  gain.gain.value = 0.4;
+  src.connect(gain).connect(ctx.destination);
+  src.start(ctx.currentTime);
+}
+// Synthesized fallback: layered ~500 ms burst designed to read as an
+// impact rather than a chime. Four components stacked through the master
+// destination:
+//   1. Sub-bass thud (80→40 Hz sine, 200 ms): the "WHOMP" body
+//   2. Low-passed body noise (~400 ms, lowpass sweeping 1200→200 Hz):
+//      the rumbling rolling explosion
+//   3. High-pass crackle (~80 ms, white noise > 3 kHz): the sharp crack
+//      at the start
+//   4. Falling sawtooth tail (~400 ms, 700→120 Hz): the dispersing whoosh
+// Order of construction matches their attack times — sub and crackle hit at
+// onset, body and tail layer in for fullness through the decay.
+function playMatchShatterSynth() {
+  if (!readSfxEnabled()) return;
+  const ctx = getOrCreateAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  // 1. Sub-bass thud — the impact body
+  const sub = ctx.createOscillator();
+  const subGain = ctx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(80, now);
+  sub.frequency.exponentialRampToValueAtTime(40, now + 0.18);
+  subGain.gain.setValueAtTime(0.0001, now);
+  subGain.gain.linearRampToValueAtTime(0.45, now + 0.005);
+  subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+  sub.connect(subGain).connect(ctx.destination);
+  sub.start(now);
+  sub.stop(now + 0.24);
+
+  // 2. Low-passed body noise — the rolling rumble
+  const bodyLen = 0.4;
+  const bodyBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * bodyLen), ctx.sampleRate);
+  const bodyData = bodyBuf.getChannelData(0);
+  for (let i = 0; i < bodyData.length; i++) {
+    // Amplitude envelope: slight attack ramp, then exponential-ish decay
+    const t = i / bodyData.length;
+    bodyData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 1.5);
+  }
+  const bodySrc = ctx.createBufferSource();
+  bodySrc.buffer = bodyBuf;
+  const bodyFilter = ctx.createBiquadFilter();
+  bodyFilter.type = 'lowpass';
+  bodyFilter.frequency.setValueAtTime(1200, now);
+  bodyFilter.frequency.exponentialRampToValueAtTime(200, now + 0.4);
+  bodyFilter.Q.value = 0.7;
+  const bodyGain = ctx.createGain();
+  bodyGain.gain.setValueAtTime(0.32, now);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  bodySrc.connect(bodyFilter).connect(bodyGain).connect(ctx.destination);
+  bodySrc.start(now);
+  bodySrc.stop(now + bodyLen);
+
+  // 3. High-pass crackle — the sharp transient
+  const crackleLen = 0.08;
+  const crackleBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * crackleLen), ctx.sampleRate);
+  const crackleData = crackleBuf.getChannelData(0);
+  for (let i = 0; i < crackleData.length; i++) {
+    crackleData[i] = (Math.random() * 2 - 1) * (1 - i / crackleData.length);
+  }
+  const crackleSrc = ctx.createBufferSource();
+  crackleSrc.buffer = crackleBuf;
+  const crackleFilter = ctx.createBiquadFilter();
+  crackleFilter.type = 'highpass';
+  crackleFilter.frequency.value = 3200;
+  const crackleGain = ctx.createGain();
+  crackleGain.gain.setValueAtTime(0.28, now);
+  crackleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  crackleSrc.connect(crackleFilter).connect(crackleGain).connect(ctx.destination);
+  crackleSrc.start(now);
+  crackleSrc.stop(now + crackleLen);
+
+  // 4. Falling sawtooth tail — the dispersing whoosh
+  const tail = ctx.createOscillator();
+  const tailGain = ctx.createGain();
+  const tailFilter = ctx.createBiquadFilter();
+  tail.type = 'sawtooth';
+  tail.frequency.setValueAtTime(700, now + 0.04);
+  tail.frequency.exponentialRampToValueAtTime(120, now + 0.42);
+  tailFilter.type = 'lowpass';
+  tailFilter.frequency.value = 2200;
+  tailFilter.Q.value = 0.4;
+  tailGain.gain.setValueAtTime(0, now);
+  tailGain.gain.linearRampToValueAtTime(0.07, now + 0.06);
+  tailGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+  tail.connect(tailFilter).connect(tailGain).connect(ctx.destination);
+  tail.start(now + 0.04);
+  tail.stop(now + 0.45);
 }
 // Triumphant win fanfare: a rising C-major pentatonic arpeggio (six notes,
 // 100 ms apart) cascading into a sustained C-major chord, with a soft C3
@@ -1062,6 +1277,9 @@ async function playWinSound() {
 }
 function syncSfxToggle() {
   if (sfxToggleEl) sfxToggleEl.checked = readSfxEnabled();
+}
+function syncExplosionAnimToggle() {
+  if (explosionAnimToggleEl) explosionAnimToggleEl.checked = readMatchAnim() === 'enhanced';
 }
 
 // Set true while a match-removal animation is in flight, gating user input
@@ -1298,12 +1516,11 @@ function render() {
   tilesLeftEl.textContent = tiles.filter(t => !t.removed).length;
 }
 
-// Execute a confirmed match between two tiles by uid. Visually fades the
-// matched pair out via the `.tile.matched` CSS transition (350 ms) before
-// the deferred render() removes them from the DOM. State is updated
-// immediately so undoStack/matchedPairs/setStatus stay in sync, but the
-// final render + end-conditions check are deferred so the player sees the
-// fade-out and the win modal doesn't appear over still-visible tiles.
+// Execute a confirmed match between two tiles by uid. Plays the
+// shatter animation (or classic 350 ms fade if the user has opted into
+// classic tiles) and defers render() + checkEndConditions() until the
+// animation completes. State is updated immediately so undoStack /
+// matchedPairs / setStatus stay in sync.
 function matchPair(uidA, uidB) {
   if (isMatching) return;
   const a = tiles[uidA];
@@ -1314,10 +1531,16 @@ function matchPair(uidA, uidB) {
   // returned null and the fade-out was dead code.
   const elA = boardEl.querySelector(`[data-uid="${a.uid}"]`);
   const elB = boardEl.querySelector(`[data-uid="${b.uid}"]`);
+  const useClassic = readMatchAnim() === 'classic';
   if (elA) elA.classList.add('matched');
   if (elB) elB.classList.add('matched');
+  if (!useClassic) {
+    if (elA) spawnTileExplosion(elA);
+    if (elB) spawnTileExplosion(elB);
+  }
 
-  playMatch();
+  if (useClassic) playMatch();
+  else playMatchShatter();
 
   a.removed = true;
   b.removed = true;
@@ -1331,15 +1554,14 @@ function matchPair(uidA, uidB) {
   setStatus(`Matched: ${logo.name}!`);
 
   isMatching = true;
-  // Match-fade is gameplay feedback (showing which two tiles got cleared),
-  // not decorative motion — so it runs unconditionally at 350 ms.
-  // prefers-reduced-motion still suppresses the decorative pieces (confetti,
-  // modal entrance, trophy pop, sparkles, count-up).
+  // Match animation is gameplay feedback (showing which two tiles got
+  // cleared), not decorative motion — so the vanish keyframe runs even
+  // under prefers-reduced-motion. The decorative shards are CSS-gated.
   setTimeout(() => {
     isMatching = false;
     render();
     checkEndConditions();
-  }, 350);
+  }, useClassic ? 350 : 500);
 }
 
 // ── Tile click handler ──
@@ -1691,6 +1913,7 @@ function showAbout(tab = 'about') {
   loadStatsForDisplay();
   syncTimerToggle();
   syncSfxToggle();
+  syncExplosionAnimToggle();
   setActiveAboutTab(tab);
   aboutModal.classList.remove('hidden');
   setTimeout(() => {
@@ -1769,6 +1992,22 @@ if (sfxToggleEl) {
     // When the user enables sound, fire one click as immediate feedback so
     // they can confirm the volume level before returning to the game.
     if (sfxToggleEl.checked) playClick();
+  });
+}
+if (explosionAnimToggleEl) {
+  explosionAnimToggleEl.addEventListener('change', () => {
+    const enhanced = explosionAnimToggleEl.checked;
+    writeMatchAnim(enhanced ? 'enhanced' : 'classic');
+    applyMatchAnim();
+    // Enabling the explosion without sound effects on would silently swallow
+    // the impact clip — the visual explosion is paired with the recorded
+    // "Cinematic Impact Hit", and one without the other reads as broken.
+    // Auto-enable SFX and reflect it in the SFX checkbox so the user sees
+    // why their mute pref flipped.
+    if (enhanced && !readSfxEnabled()) {
+      writeSfxEnabled(true);
+      if (sfxToggleEl) sfxToggleEl.checked = true;
+    }
   });
 }
 if (timerDisplayEl) {
@@ -1965,6 +2204,7 @@ if (bootChallenge) {
 }
 buildGallery();
 requestAnimationFrame(() => {
+  applyMatchAnim();
   newGame({ preserveSeed: bootChallenge !== null });
   loadStatsForDisplay();
   syncTimerToggle();
@@ -1979,6 +2219,7 @@ requestAnimationFrame(() => {
     showChallengeStartModal(bootChallenge.targetMs, bootChallenge.targetHints, bootChallenge.targetShuffles);
   }
   loadApplauseAsset();
+  loadMatchImpactAsset();
 });
 
 // ─── In-page validator (dev tool) ─────────────────────────────────────
